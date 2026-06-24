@@ -1,0 +1,27 @@
+{
+  "name": "@cloutkit/backend",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./convex/_generated/server.js",
+  "types": "./convex/_generated/server.d.ts",
+  "scripts": {
+    "dev": "convex dev",
+    "type-check": "tsc --noEmit -p convex/tsconfig.json"
+  },
+  "exports": {
+    "./convex/_generated/api": {
+      "types": "./convex/_generated/api.d.ts",
+      "default": "./convex/_generated/api.js"
+    },
+    "./convex/*": "./convex/*"
+  },
+  "dependencies": {
+    "@auth/core": "^0.41.2",
+    "@convex-dev/auth": "^0.0.94",
+    "convex": "^1.42.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "typescript": "^5.9.3"
+  }
+}
