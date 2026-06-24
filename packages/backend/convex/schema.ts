@@ -119,4 +119,57 @@ export default defineSchema({
     postingFrequency: v.optional(v.string()),
     stylePreference: v.optional(v.string()),
   }).index("by_workspaceId", ["workspaceId"]),
+
+  userApiKeys: defineTable({
+    workspaceId: v.id("workspaces"),
+    provider: v.union(
+      v.literal("OPENAI"),
+      v.literal("ANTHROPIC"),
+      v.literal("OPENROUTER"),
+      v.literal("GROQ"),
+      v.literal("GOOGLE"),
+      v.literal("OTHER"),
+    ),
+    // AES-256-GCM via Web Crypto; the auth tag is embedded in `ciphertext`
+    // (Web Crypto's AES-GCM output appends it, unlike Node's crypto module
+    // which exposes it separately).
+    encryptedKey: v.object({
+      iv: v.string(),
+      ciphertext: v.string(),
+    }),
+    keyPreview: v.string(),
+    status: v.union(
+      v.literal("ACTIVE"),
+      v.literal("INVALID"),
+      v.literal("DISABLED"),
+      v.literal("DELETED"),
+    ),
+    lastTestedAt: v.optional(v.number()),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_workspaceId_and_provider", ["workspaceId", "provider"]),
+
+  aiProviderSettings: defineTable({
+    workspaceId: v.id("workspaces"),
+    activeProvider: v.union(
+      v.literal("OPENAI"),
+      v.literal("ANTHROPIC"),
+      v.literal("OPENROUTER"),
+      v.literal("GROQ"),
+      v.literal("GOOGLE"),
+      v.literal("OTHER"),
+    ),
+    model: v.string(),
+    maxTokensPerGeneration: v.optional(v.number()),
+    monthlyTokenLimit: v.optional(v.number()),
+  }).index("by_workspaceId", ["workspaceId"]),
+
+  auditLogs: defineTable({
+    workspaceId: v.id("workspaces"),
+    userId: v.id("users"),
+    action: v.string(),
+    entityType: v.optional(v.string()),
+    entityId: v.optional(v.string()),
+    metadataJson: v.optional(v.any()),
+  }).index("by_workspaceId", ["workspaceId"]),
 });

@@ -3,6 +3,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api } from "@cloutkit/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +17,10 @@ import {
 export function DashboardContent() {
   const workspace = useQuery(api.workspaces.getCurrentWorkspace);
   const brandIdentity = useQuery(api.brandIdentity.getBrandIdentity);
+  const apiKeys = useQuery(api.apiKeys.listApiKeys);
   const { signOut } = useAuthActions();
   const router = useRouter();
+  const hasActiveKey = apiKeys?.some((key) => key.status === "ACTIVE");
 
   async function handleSignOut() {
     await signOut();
@@ -57,10 +60,13 @@ export function DashboardContent() {
         <Card>
           <CardHeader>
             <CardTitle>API keys</CardTitle>
-            <CardDescription>Coming in Phase 3</CardDescription>
+            <CardDescription>{hasActiveKey ? "Connected" : "Not connected yet"}</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Bring your own encrypted AI provider key.
+            Bring your own encrypted AI provider key.{" "}
+            <Link href="/settings/api-keys" className="underline">
+              Manage keys
+            </Link>
           </CardContent>
         </Card>
         <Card>

@@ -8,9 +8,13 @@
  * @module
  */
 
+import type * as apiKeyActions from "../apiKeyActions.js";
+import type * as apiKeys from "../apiKeys.js";
 import type * as auth from "../auth.js";
 import type * as brandIdentity from "../brandIdentity.js";
 import type * as http from "../http.js";
+import type * as lib_audit from "../lib/audit.js";
+import type * as lib_encryption from "../lib/encryption.js";
 import type * as onboarding from "../onboarding.js";
 import type * as users from "../users.js";
 import type * as workspaces from "../workspaces.js";
@@ -22,9 +26,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  apiKeyActions: typeof apiKeyActions;
+  apiKeys: typeof apiKeys;
   auth: typeof auth;
   brandIdentity: typeof brandIdentity;
   http: typeof http;
+  "lib/audit": typeof lib_audit;
+  "lib/encryption": typeof lib_encryption;
   onboarding: typeof onboarding;
   users: typeof users;
   workspaces: typeof workspaces;

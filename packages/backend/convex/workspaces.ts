@@ -1,5 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { query, QueryCtx, MutationCtx } from "./_generated/server";
+import { internalQuery, query, QueryCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
 export async function getWorkspaceIdForCurrentUser(
@@ -16,6 +16,15 @@ export async function getWorkspaceIdForCurrentUser(
 
   return { userId, workspaceId: membership.workspaceId };
 }
+
+// Lets actions (which have no `ctx.db`) resolve the current user's
+// workspace via `ctx.runQuery`.
+export const getMyWorkspaceId = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await getWorkspaceIdForCurrentUser(ctx);
+  },
+});
 
 export const getCurrentWorkspace = query({
   args: {},
