@@ -5,9 +5,9 @@ import {
 import { fetchQuery } from "convex/nextjs";
 import { redirect } from "next/navigation";
 import { api } from "@cloutkit/backend/convex/_generated/api";
-import { DashboardContent } from "./dashboard-content";
+import { OnboardingWizard } from "./onboarding-wizard";
 
-export default async function DashboardPage() {
+export default async function OnboardingPage() {
   if (!(await isAuthenticatedNextjs())) {
     redirect("/signin");
   }
@@ -15,9 +15,13 @@ export default async function DashboardPage() {
   const user = await fetchQuery(api.users.getCurrentUser, {}, {
     token: await convexAuthNextjsToken(),
   });
-  if (!user?.onboardingCompleted) {
-    redirect("/onboarding");
+  if (user?.onboardingCompleted) {
+    redirect("/dashboard");
   }
 
-  return <DashboardContent />;
+  return (
+    <div className="flex flex-1 items-center justify-center px-6 py-12">
+      <OnboardingWizard />
+    </div>
+  );
 }

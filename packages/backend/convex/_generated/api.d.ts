@@ -9,7 +9,10 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as brandIdentity from "../brandIdentity.js";
 import type * as http from "../http.js";
+import type * as onboarding from "../onboarding.js";
+import type * as users from "../users.js";
 import type * as workspaces from "../workspaces.js";
 
 import type {
@@ -20,7 +23,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  brandIdentity: typeof brandIdentity;
   http: typeof http;
+  onboarding: typeof onboarding;
+  users: typeof users;
   workspaces: typeof workspaces;
 }>;
 

@@ -15,6 +15,7 @@ import {
 
 export function DashboardContent() {
   const workspace = useQuery(api.workspaces.getCurrentWorkspace);
+  const brandIdentity = useQuery(api.brandIdentity.getBrandIdentity);
   const { signOut } = useAuthActions();
   const router = useRouter();
 
@@ -45,10 +46,12 @@ export function DashboardContent() {
         <Card>
           <CardHeader>
             <CardTitle>Onboarding</CardTitle>
-            <CardDescription>Coming in Phase 2</CardDescription>
+            <CardDescription>Complete</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Brand identity, audience, and voice questions.
+            {brandIdentity
+              ? `Brand profile saved for "${brandIdentity.brandName}".`
+              : "Brand identity, audience, and voice questions."}
           </CardContent>
         </Card>
         <Card>
