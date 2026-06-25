@@ -6,7 +6,7 @@ import type { Doc, Id } from "@cloutkit/backend/convex/_generated/dataModel";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Loader2, Wand2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 interface SequenceReviewProps {
@@ -98,7 +98,7 @@ export function SequenceReview({ campaignId }: SequenceReviewProps) {
 }
 
 interface PostCardProps {
-  post: Doc<"posts">;
+  post: Doc<"posts"> & { mediaUrl: string | null };
   campaignId: Id<"campaigns">;
   isPublished: boolean;
 }
@@ -108,11 +108,16 @@ function PostCard({ post, isPublished }: PostCardProps) {
   const [editedContent, setEditedContent] = useState(post.content);
   const [editedMediaDesc, setEditedMediaDesc] = useState(post.mediaDescription || "");
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   const updatePost = useMutation(api.posts.updatePost);
   const approvePost = useMutation(api.posts.approvePost);
   const rejectPost = useMutation(api.posts.rejectPost);
   const regenerateMutation = useAction(api.postActions.regeneratePost);
+  const generateUploadUrl = useMutation(api.posts.generateUploadUrl);
+  const attachMedia = useMutation(api.posts.attachMediaToPost);
+  const generateImage = useAction(api.postMediaActions.generatePostImage);
 
   const handleSaveEdits = async () => {
     setIsLoading(true);
@@ -258,6 +263,110 @@ function PostCard({ post, isPublished }: PostCardProps) {
               </p>
             </div>
           )}
+
+          {post.platform === "INSTAGRAM" && (
+            <div className="mb-3 rounded border border-blue-200 bg-blue-50 p-3">
+              {post.mediaUrl ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-700">Image attached:</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={post.mediaUrl} alt="Post" className="h-32 w-32 rounded object-cover" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-700">
+                    Image required for Instagram posting
+                  </p>
+                  <div className="flex gap-2">
+                    <label className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isUploadingMedia}
+                        onChange={async (e) => {
+                          const file = e.currentTarget.files?.[0];
+                          if (!file) return;
+                          setIsUploadingMedia(true);
+                          try {
+                            const url = await generateUploadUrl();
+                            const uploadResponse = await fetch(url, {
+                              method: "POST",
+                              body: file,
+                            });
+                            const { storageId } = (await uploadResponse.json()) as {
+                              storageId: string;
+                            };
+                            await attachMedia({ postId: post._id, storageId: storageId as Id<"_storage"> });
+                            toast.success("Image uploaded");
+                          } catch {
+                            toast.error("Failed to upload image");
+                          } finally {
+                            setIsUploadingMedia(false);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isUploadingMedia}
+                        onClick={(e) => {
+                          e.currentTarget.parentElement
+                            ?.querySelector('input[type="file"]')
+                            ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+                        }}
+                      >
+                        {isUploadingMedia ? (
+                          <>
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            Uploading…
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="mr-1 h-3 w-3" />
+                            Upload
+                          </>
+                        )}
+                      </Button>
+                    </label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isGeneratingImage || !post.mediaDescription}
+                      onClick={async () => {
+                        setIsGeneratingImage(true);
+                        try {
+                          await generateImage({ postId: post._id });
+                          toast.success("Image generated");
+                        } catch (error) {
+                          const message =
+                            error instanceof Error ? error.message : "Failed to generate image";
+                          toast.error(message);
+                        } finally {
+                          setIsGeneratingImage(false);
+                        }
+                      }}
+                    >
+                      {isGeneratingImage ? (
+                        <>
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          Generating…
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="mr-1 h-3 w-3" />
+                          Generate
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {isPublished && post.mockPublishedUrl && (
             <div className="mb-3 rounded bg-white/50 p-2">
               <p className="text-xs text-gray-600">
@@ -290,7 +399,7 @@ function PostCard({ post, isPublished }: PostCardProps) {
                   <Button
                     size="sm"
                     onClick={handleApprove}
-                    disabled={isLoading}
+                    disabled={isLoading || (post.platform === "INSTAGRAM" && !post.mediaUrl)}
                   >
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Approve

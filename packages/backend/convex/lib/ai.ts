@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateText, Output } from "ai";
+import { generateText, generateImage, Output } from "ai";
 import { z } from "zod";
 import type { Doc } from "../_generated/dataModel";
 
@@ -9,6 +9,12 @@ const PRICING_PER_MILLION_TOKENS: Record<string, { input: number; output: number
   "gpt-4o-mini": { input: 0.15, output: 0.6 },
   "gpt-4o": { input: 2.5, output: 10 },
   "gpt-4.1": { input: 2, output: 8 },
+};
+
+// Rough per-image pricing in USD for DALL-E models.
+const IMAGE_PRICING_PER_IMAGE: Record<string, number> = {
+  "dall-e-3": 0.04,
+  "dall-e-2": 0.02,
 };
 
 export const PEAK_TIMES: Record<string, { weekday: string[]; weekend: string[] }> = {
@@ -380,5 +386,34 @@ export async function generateRoutineEngagementQueue(params: {
       totalTokens: result.usage.totalTokens ?? promptTokens + completionTokens,
     },
     estimatedCost: estimateCost(model, promptTokens, completionTokens),
+  };
+}
+
+export async function generatePostImageFile(params: {
+  apiKey: string;
+  model: string;
+  prompt: string;
+}): Promise<{
+  uint8Array: Uint8Array;
+  mediaType: string;
+  estimatedCost: number;
+}> {
+  const { apiKey, model, prompt } = params;
+  const provider = createOpenAI({ apiKey });
+
+  const result = await generateImage({
+    model: provider.image(model),
+    prompt,
+    size: "1024x1024",
+  });
+
+  const imageBytes = await result.image.uint8Array;
+  const mediaType = result.image.mediaType;
+  const estimatedCost = IMAGE_PRICING_PER_IMAGE[model] ?? 0.04;
+
+  return {
+    uint8Array: imageBytes,
+    mediaType,
+    estimatedCost,
   };
 }

@@ -208,3 +208,92 @@ export const testFacebookConnection = action({
     }
   },
 });
+
+export const connectInstagramAccount = action({
+  args: { pageAccessToken: v.string(), pageId: v.string() },
+  handler: async (ctx, { pageAccessToken, pageId }) => {
+    const ids = await ctx.runQuery(internal.workspaces.getMyWorkspaceId, {});
+    if (ids === null) throw new Error("Not authenticated");
+
+    const response = await fetch(
+      `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}?fields=instagram_business_account{id,username}&access_token=${encodeURIComponent(pageAccessToken)}`,
+    );
+
+    if (!response.ok) {
+      throw new Error(`Instagram API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = (await response.json()) as {
+      instagram_business_account?: { id?: string; username?: string };
+    };
+    const igAccount = data.instagram_business_account;
+    if (!igAccount?.id || !igAccount?.username) {
+      throw new Error("No linked Instagram Business account found for this page");
+    }
+
+    const credentialsJson = JSON.stringify({
+      pageAccessToken,
+      igUserId: igAccount.id,
+    });
+    const encrypted = await encryptSecret(credentialsJson);
+
+    await ctx.runMutation(internal.socialConnections.storeConnection, {
+      workspaceId: ids.workspaceId,
+      userId: ids.userId,
+      platform: "INSTAGRAM",
+      encryptedCredentials: encrypted,
+      accountHandle: igAccount.username,
+    });
+  },
+});
+
+export const testInstagramConnection = action({
+  args: { connectionId: v.id("socialConnections") },
+  handler: async (ctx, { connectionId }) => {
+    const ids = await ctx.runQuery(internal.workspaces.getMyWorkspaceId, {});
+    if (ids === null) throw new Error("Not authenticated");
+
+    const connection = await ctx.runQuery(
+      internal.socialConnections.getActiveConnectionForPlatform,
+      {
+        workspaceId: ids.workspaceId,
+        platform: "INSTAGRAM",
+      },
+    );
+
+    if (connection === null) {
+      throw new Error("Connection not found");
+    }
+
+    const credentialsJson = await decryptSecret(connection.encryptedCredentials);
+    const credentials = JSON.parse(credentialsJson) as {
+      pageAccessToken: string;
+      igUserId: string;
+    };
+
+    try {
+      const response = await fetch(
+        `https://graph.facebook.com/v19.0/${encodeURIComponent(credentials.igUserId)}?access_token=${encodeURIComponent(credentials.pageAccessToken)}`,
+      );
+
+      const success = response.ok;
+      await ctx.runMutation(internal.socialConnections.recordTestResult, {
+        connectionId,
+        workspaceId: ids.workspaceId,
+        userId: ids.userId,
+        success,
+      });
+
+      return { success };
+    } catch {
+      await ctx.runMutation(internal.socialConnections.recordTestResult, {
+        connectionId,
+        workspaceId: ids.workspaceId,
+        userId: ids.userId,
+        success: false,
+      });
+
+      return { success: false };
+    }
+  },
+});

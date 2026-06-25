@@ -28,8 +28,10 @@ export function SocialAccountsContent() {
   const connections = useQuery(api.socialConnections.listConnections);
   const connectX = useAction(api.socialConnectionActions.connectXAccount);
   const connectFacebook = useAction(api.socialConnectionActions.connectFacebookAccount);
+  const connectInstagram = useAction(api.socialConnectionActions.connectInstagramAccount);
   const testConnection = useAction(api.socialConnectionActions.testConnection);
   const testFacebookConnection = useAction(api.socialConnectionActions.testFacebookConnection);
+  const testInstagramConnection = useAction(api.socialConnectionActions.testInstagramConnection);
   const deleteConnection = useMutation(api.socialConnections.deleteConnection);
 
   const [apiKey, setApiKey] = useState("");
@@ -37,8 +39,11 @@ export function SocialAccountsContent() {
   const [accessToken, setAccessToken] = useState("");
   const [accessTokenSecret, setAccessTokenSecret] = useState("");
   const [facebookToken, setFacebookToken] = useState("");
+  const [pageAccessToken, setPageAccessToken] = useState("");
+  const [pageId, setPageId] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingFacebook, setSavingFacebook] = useState(false);
+  const [savingInstagram, setSavingInstagram] = useState(false);
   const [testingId, setTestingId] = useState<Id<"socialConnections"> | null>(null);
 
   async function handleConnectX(event: FormEvent<HTMLFormElement>) {
@@ -89,11 +94,41 @@ export function SocialAccountsContent() {
     }
   }
 
+  async function handleConnectInstagram(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!pageAccessToken.trim() || !pageId.trim()) {
+      toast.error("Page Access Token and Page ID are required");
+      return;
+    }
+
+    setSavingInstagram(true);
+    try {
+      await connectInstagram({
+        pageAccessToken: pageAccessToken.trim(),
+        pageId: pageId.trim(),
+      });
+      setPageAccessToken("");
+      setPageId("");
+      toast.success("Instagram account connected");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not connect account";
+      toast.error(message);
+    } finally {
+      setSavingInstagram(false);
+    }
+  }
+
   async function handleTest(id: Id<"socialConnections">, platform: string) {
     setTestingId(id);
     try {
-      const testFn =
-        platform === "FACEBOOK" ? testFacebookConnection : testConnection;
+      let testFn;
+      if (platform === "FACEBOOK") {
+        testFn = testFacebookConnection;
+      } else if (platform === "INSTAGRAM") {
+        testFn = testInstagramConnection;
+      } else {
+        testFn = testConnection;
+      }
       const result = await testFn({ connectionId: id });
       toast[result.success ? "success" : "error"](
         result.success ? "Connection is valid" : "Connection failed validation",
@@ -203,6 +238,52 @@ export function SocialAccountsContent() {
             <Button type="submit" disabled={savingFacebook || !facebookToken.trim()}>
               {savingFacebook && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {savingFacebook ? "Connecting…" : "Connect account"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Connect Instagram</CardTitle>
+          <CardDescription>
+            Your Instagram account must be linked to a Facebook Page in Business/Creator mode.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="flex flex-col gap-4" onSubmit={handleConnectInstagram}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="pageId">Facebook Page ID</Label>
+              <Input
+                id="pageId"
+                type="text"
+                value={pageId}
+                onChange={(e) => setPageId(e.target.value)}
+                placeholder="e.g. 123456789"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="pageAccessToken">Page Access Token</Label>
+              <Input
+                id="pageAccessToken"
+                type="password"
+                value={pageAccessToken}
+                onChange={(e) => setPageAccessToken(e.target.value)}
+                placeholder="From Graph API Explorer"
+                autoComplete="off"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Required permissions: pages_show_list, instagram_basic, instagram_content_publish,
+              pages_read_engagement
+            </p>
+            <Button
+              type="submit"
+              disabled={savingInstagram || !pageAccessToken.trim() || !pageId.trim()}
+            >
+              {savingInstagram && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {savingInstagram ? "Connecting…" : "Connect account"}
             </Button>
           </form>
         </CardContent>

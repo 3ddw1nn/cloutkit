@@ -10,11 +10,20 @@ export const getPostsForCampaign = query({
     const ids = await getWorkspaceIdForCurrentUser(ctx);
     if (ids === null) return [];
 
-    return await ctx.db
+    const posts = await ctx.db
       .query("posts")
       .withIndex("by_campaignId", (q) => q.eq("campaignId", campaignId))
       .order("asc")
       .collect();
+
+    const postsWithMedia = await Promise.all(
+      posts.map(async (post) => ({
+        ...post,
+        mediaUrl: post.mediaStorageId ? await ctx.storage.getUrl(post.mediaStorageId) : null,
+      })),
+    );
+
+    return postsWithMedia;
   },
 });
 
@@ -26,7 +35,10 @@ export const getPostById = query({
 
     const post = await ctx.db.get("posts", postId);
     if (post && post.workspaceId !== ids.workspaceId) return null;
-    return post || null;
+    if (!post) return null;
+
+    const mediaUrl = post.mediaStorageId ? await ctx.storage.getUrl(post.mediaStorageId) : null;
+    return { ...post, mediaUrl };
   },
 });
 
@@ -219,6 +231,56 @@ const MOCK_URL_TEMPLATES: Record<string, string> = {
   X: "https://x.com/i/status/{id}",
   YOUTUBE: "https://youtube.com/watch?v={id}",
 };
+
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const ids = await getWorkspaceIdForCurrentUser(ctx);
+    if (ids === null) throw new Error("Not authenticated");
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const attachMediaToPost = mutation({
+  args: { postId: v.id("posts"), storageId: v.id("_storage") },
+  handler: async (ctx, { postId, storageId }) => {
+    const ids = await getWorkspaceIdForCurrentUser(ctx);
+    if (ids === null) throw new Error("Not authenticated");
+
+    const post = await ctx.db.get("posts", postId);
+    if (post === null || post.workspaceId !== ids.workspaceId) {
+      throw new Error("Post not found");
+    }
+
+    await ctx.db.patch("posts", postId, { mediaStorageId: storageId });
+
+    await logAudit(ctx, {
+      workspaceId: ids.workspaceId,
+      userId: ids.userId,
+      action: "POST_MEDIA_ATTACHED",
+      entityType: "posts",
+      entityId: postId,
+    });
+  },
+});
+
+export const recordImageUsage = internalMutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    provider: v.string(),
+    estimatedCost: v.number(),
+  },
+  handler: async (ctx, { workspaceId, provider, estimatedCost }) => {
+    await ctx.db.insert("apiUsageLogs", {
+      workspaceId,
+      provider: provider as any,
+      model: "dall-e-3",
+      feature: "POST_IMAGE_GENERATION",
+      estimatedCost,
+    });
+  },
+});
 
 export const completeCampaignPublish = internalMutation({
   args: {

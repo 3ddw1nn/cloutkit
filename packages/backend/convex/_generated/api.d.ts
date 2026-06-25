@@ -25,6 +25,7 @@ import type * as lib_xOAuth1 from "../lib/xOAuth1.js";
 import type * as onboarding from "../onboarding.js";
 import type * as platformGoals from "../platformGoals.js";
 import type * as postActions from "../postActions.js";
+import type * as postMediaActions from "../postMediaActions.js";
 import type * as postPublishActions from "../postPublishActions.js";
 import type * as posts from "../posts.js";
 import type * as socialConnectionActions from "../socialConnectionActions.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   onboarding: typeof onboarding;
   platformGoals: typeof platformGoals;
   postActions: typeof postActions;
+  postMediaActions: typeof postMediaActions;
   postPublishActions: typeof postPublishActions;
   posts: typeof posts;
   socialConnectionActions: typeof socialConnectionActions;

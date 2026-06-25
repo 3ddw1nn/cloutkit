@@ -54,7 +54,137 @@ export const publishCampaignSequence = action({
       }
 
       // Check if this post's platform has a real connection
-      if (post.platform === "FACEBOOK") {
+      if (post.platform === "INSTAGRAM") {
+        const instagramConnection = await ctx.runQuery(
+          internal.socialConnections.getActiveConnectionForPlatform,
+          {
+            workspaceId: ids.workspaceId,
+            platform: "INSTAGRAM",
+          },
+        );
+
+        if (instagramConnection !== null && post.mediaStorageId) {
+          try {
+            const credentialsJson = await decryptSecret(
+              instagramConnection.encryptedCredentials,
+            );
+            const credentials = JSON.parse(credentialsJson) as {
+              pageAccessToken: string;
+              igUserId: string;
+            };
+
+            const mediaUrl = await ctx.storage.getUrl(post.mediaStorageId);
+
+            if (!mediaUrl) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            // Step 1: Create media container
+            const containerResponse = await fetch(
+              `https://graph.instagram.com/v19.0/${encodeURIComponent(credentials.igUserId)}/media`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body:
+                  "image_url=" +
+                  encodeURIComponent(mediaUrl) +
+                  "&caption=" +
+                  encodeURIComponent(post.content) +
+                  "&access_token=" +
+                  encodeURIComponent(credentials.pageAccessToken),
+              },
+            );
+
+            if (!containerResponse.ok) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            const containerData = (await containerResponse.json()) as { id?: string };
+            const mediaContainerId = containerData.id;
+
+            if (!mediaContainerId) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            // Step 2: Publish the container
+            const publishResponse = await fetch(
+              `https://graph.instagram.com/v19.0/${encodeURIComponent(credentials.igUserId)}/media_publish`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body:
+                  "creation_id=" +
+                  encodeURIComponent(mediaContainerId) +
+                  "&access_token=" +
+                  encodeURIComponent(credentials.pageAccessToken),
+              },
+            );
+
+            if (!publishResponse.ok) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            const publishData = (await publishResponse.json()) as { id?: string };
+            const postId = publishData.id;
+
+            if (!postId) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            // Step 3: Fetch permalink
+            const permalinkResponse = await fetch(
+              `https://graph.instagram.com/v19.0/${encodeURIComponent(postId)}?fields=permalink&access_token=${encodeURIComponent(credentials.pageAccessToken)}`,
+            );
+
+            if (!permalinkResponse.ok) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            const permalinkData = (await permalinkResponse.json()) as { permalink?: string };
+            const permalink = permalinkData.permalink;
+
+            publishResults.push({
+              postId: post._id,
+              success: true,
+              publishedAt: now,
+              mockPlatformPostId: postId,
+              mockPublishedUrl: permalink || `https://instagram.com/p/${postId}`,
+              publishMethod: "REAL",
+            });
+            continue;
+          } catch {
+            // Fall through to mock publishing
+          }
+        }
+      } else if (post.platform === "FACEBOOK") {
         const facebookConnection = await ctx.runQuery(
           internal.socialConnections.getActiveConnectionForPlatform,
           {
