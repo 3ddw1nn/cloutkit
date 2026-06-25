@@ -50,3 +50,25 @@ export const CAMPAIGN_STATUS = v.union(
   v.literal("ARCHIVED"),
   v.literal("FAILED"),
 );
+
+export const ENGAGEMENT_ACTION_TYPE = v.union(
+  v.literal("COMMENT"),
+  v.literal("LIKE"),
+  v.literal("FOLLOW"),
+  v.literal("REPLY"),
+  v.literal("REPOST"),
+  v.literal("REACT"),
+  v.literal("SUBSCRIBE"),
+);
+
+export const DAY_TYPE = v.union(v.literal("WEEKDAY"), v.literal("WEEKEND"));
+
+export const ENGAGEMENT_SOURCE = v.union(v.literal("CAMPAIGN_WAVE"), v.literal("ROUTINE"));
+
+export const TARGET_TYPE = v.union(v.literal("POST"), v.literal("ACCOUNT"));
+
+export const ENGAGEMENT_OPPORTUNITY_STATUS = v.union(
+  v.literal("PENDING"),
+  v.literal("APPROVED"),
+  v.literal("REJECTED"),
+);

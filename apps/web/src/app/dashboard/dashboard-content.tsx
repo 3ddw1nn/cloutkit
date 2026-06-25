@@ -86,11 +86,14 @@ export function DashboardContent() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Approval queue</CardTitle>
-            <CardDescription>Coming in Phase 5–7</CardDescription>
+            <CardTitle>Engagement routine</CardTitle>
+            <CardDescription>Daily outbound engagement</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Review drafts, mock publish, and engagement waves.
+            Set daily engagement targets and approve opportunities.{" "}
+            <Link href="/settings/engagement" className="underline">
+              Configure routine
+            </Link>
           </CardContent>
         </Card>
       </div>

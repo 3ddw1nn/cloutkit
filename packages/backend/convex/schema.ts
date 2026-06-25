@@ -1,7 +1,17 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { PLATFORM, PROVIDER, CAMPAIGN_TYPE, CAMPAIGN_STATUS } from "./lib/validators";
+import {
+  PLATFORM,
+  PROVIDER,
+  CAMPAIGN_TYPE,
+  CAMPAIGN_STATUS,
+  ENGAGEMENT_ACTION_TYPE,
+  DAY_TYPE,
+  ENGAGEMENT_SOURCE,
+  TARGET_TYPE,
+  ENGAGEMENT_OPPORTUNITY_STATUS,
+} from "./lib/validators";
 
 export default defineSchema({
   ...authTables,
@@ -213,4 +223,43 @@ export default defineSchema({
   })
     .index("by_campaignId", ["campaignId"])
     .index("by_workspaceId", ["workspaceId"]),
+
+  engagementWaves: defineTable({
+    campaignId: v.id("campaigns"),
+    workspaceId: v.id("workspaces"),
+    dayDate: v.string(),
+    dayType: DAY_TYPE,
+    generatedAt: v.number(),
+    rawAiOutput: v.string(),
+  })
+    .index("by_campaignId", ["campaignId"])
+    .index("by_workspaceId", ["workspaceId"]),
+
+  engagementOpportunities: defineTable({
+    workspaceId: v.id("workspaces"),
+    source: ENGAGEMENT_SOURCE,
+    waveId: v.optional(v.id("engagementWaves")),
+    campaignId: v.optional(v.id("campaigns")),
+    platform: PLATFORM,
+    actionType: ENGAGEMENT_ACTION_TYPE,
+    targetType: TARGET_TYPE,
+    targetHandle: v.string(),
+    targetFollowerCount: v.optional(v.number()),
+    targetPostSnippet: v.optional(v.string()),
+    proposedText: v.optional(v.string()),
+    scheduledFor: v.number(),
+    status: ENGAGEMENT_OPPORTUNITY_STATUS,
+    reviewedAt: v.optional(v.number()),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_waveId", ["waveId"]),
+
+  engagementRoutineSettings: defineTable({
+    workspaceId: v.id("workspaces"),
+    enabled: v.boolean(),
+    commentsPerDay: v.number(),
+    likesPerDay: v.number(),
+    followsPerDay: v.number(),
+    repliesPerDay: v.number(),
+  }).index("by_workspaceId", ["workspaceId"]),
 });

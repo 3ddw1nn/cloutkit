@@ -69,6 +69,11 @@ export function CampaignOverview({ campaignId }: { campaignId: Id<"campaigns"> }
             Review sequence
           </Link>
         )}
+        {campaign.status === "PUBLISHED" || campaign.status === "ENGAGEMENT_REVIEW" || campaign.status === "COMPLETED" ? (
+          <Link href={`/campaigns/${campaignId}/engagement`} className={buttonVariants()}>
+            Engagement wave
+          </Link>
+        ) : null}
       </div>
     </div>
   );

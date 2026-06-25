@@ -14,6 +14,8 @@ import type * as auth from "../auth.js";
 import type * as brandIdentity from "../brandIdentity.js";
 import type * as campaignActions from "../campaignActions.js";
 import type * as campaigns from "../campaigns.js";
+import type * as engagement from "../engagement.js";
+import type * as engagementActions from "../engagementActions.js";
 import type * as http from "../http.js";
 import type * as lib_ai from "../lib/ai.js";
 import type * as lib_audit from "../lib/audit.js";
@@ -39,6 +41,8 @@ declare const fullApi: ApiFromModules<{
   brandIdentity: typeof brandIdentity;
   campaignActions: typeof campaignActions;
   campaigns: typeof campaigns;
+  engagement: typeof engagement;
+  engagementActions: typeof engagementActions;
   http: typeof http;
   "lib/ai": typeof lib_ai;
   "lib/audit": typeof lib_audit;
