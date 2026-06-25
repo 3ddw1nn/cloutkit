@@ -27,6 +27,19 @@ export const getPostsForCampaign = query({
   },
 });
 
+// Internal-only: for use by scheduled/internal actions that have no caller
+// identity to resolve a workspace from (e.g. postPublishActions.ts).
+export const getPostsForCampaignInternal = internalQuery({
+  args: { campaignId: v.id("campaigns") },
+  handler: async (ctx, { campaignId }) => {
+    return await ctx.db
+      .query("posts")
+      .withIndex("by_campaignId", (q) => q.eq("campaignId", campaignId))
+      .order("asc")
+      .collect();
+  },
+});
+
 export const getRealPublishedPostsForWorkspace = internalQuery({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, { workspaceId }) => {
@@ -328,9 +341,18 @@ export const completeCampaignPublish = internalMutation({
     }
 
     const allPublished = results.every((r) => r.success);
-    if (allPublished) {
-      await ctx.db.patch("campaigns", campaignId, { status: "PUBLISHED" });
-    }
+    const campaign = await ctx.db.get("campaigns", campaignId);
+    const wasScheduled = campaign?.status === "SCHEDULED";
+
+    await ctx.db.patch("campaigns", campaignId, {
+      ...(allPublished
+        ? { status: "PUBLISHED" as const }
+        : wasScheduled
+          ? { status: "READY_TO_PUBLISH" as const }
+          : {}),
+      scheduledFor: undefined,
+      scheduledFunctionId: undefined,
+    });
 
     await logAudit(ctx, {
       workspaceId,

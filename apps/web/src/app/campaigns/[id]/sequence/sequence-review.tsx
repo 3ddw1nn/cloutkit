@@ -17,7 +17,12 @@ export function SequenceReview({ campaignId }: SequenceReviewProps) {
   const campaign = useQuery(api.campaigns.getCampaignById, { campaignId });
   const posts = useQuery(api.posts.getPostsForCampaign, { campaignId });
   const publishCampaign = useAction(api.postPublishActions.publishCampaignSequence);
+  const scheduleCampaign = useMutation(api.campaigns.scheduleCampaignPublish);
+  const cancelSchedule = useMutation(api.campaigns.cancelScheduledPublish);
   const [publishing, setPublishing] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [scheduledForInput, setScheduledForInput] = useState("");
 
   if (!campaign || !posts) {
     return <div className="text-center text-gray-500">Loading...</div>;
@@ -30,6 +35,8 @@ export function SequenceReview({ campaignId }: SequenceReviewProps) {
   const allApproved =
     posts.length > 0 && posts.every((p) => p.status === "APPROVED");
   const isPublished = campaign.campaign.status === "PUBLISHED";
+  const isReadyToPublish = campaign.campaign.status === "READY_TO_PUBLISH";
+  const isScheduled = campaign.campaign.status === "SCHEDULED";
 
   const handlePublish = async () => {
     setPublishing(true);
@@ -44,6 +51,37 @@ export function SequenceReview({ campaignId }: SequenceReviewProps) {
       toast.error(message);
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleSchedule = async () => {
+    if (!scheduledForInput) {
+      toast.error("Pick a date and time first");
+      return;
+    }
+    const scheduledFor = new Date(scheduledForInput).getTime();
+    setScheduling(true);
+    try {
+      await scheduleCampaign({ campaignId, scheduledFor });
+      toast.success("Campaign scheduled");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to schedule campaign";
+      toast.error(message);
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const handleCancelSchedule = async () => {
+    setCancelling(true);
+    try {
+      await cancelSchedule({ campaignId });
+      toast.success("Schedule cancelled");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to cancel schedule";
+      toast.error(message);
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -64,15 +102,54 @@ export function SequenceReview({ campaignId }: SequenceReviewProps) {
         </div>
       )}
 
-      {allApproved && !isPublished && (
-        <div className="rounded-lg bg-green-50 p-4 border border-green-200 flex items-center justify-between">
+      {isScheduled && (
+        <div className="rounded-lg bg-purple-50 p-4 border border-purple-200 flex items-center justify-between">
+          <p className="text-sm font-medium text-purple-900">
+            Scheduled for{" "}
+            {campaign.campaign.scheduledFor
+              ? new Date(campaign.campaign.scheduledFor).toLocaleString()
+              : "—"}
+          </p>
+          <Button
+            onClick={handleCancelSchedule}
+            disabled={cancelling}
+            size="sm"
+            variant="outline"
+          >
+            {cancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {cancelling ? "Cancelling…" : "Cancel schedule"}
+          </Button>
+        </div>
+      )}
+
+      {allApproved && isReadyToPublish && (
+        <div className="rounded-lg bg-green-50 p-4 border border-green-200 space-y-3">
           <p className="text-sm font-medium text-green-900">
             ✓ All posts approved! Ready to publish.
           </p>
-          <Button onClick={handlePublish} disabled={publishing} size="sm">
-            {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {publishing ? "Publishing…" : "Publish campaign"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={handlePublish} disabled={publishing} size="sm">
+              {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {publishing ? "Publishing…" : "Publish now"}
+            </Button>
+            <span className="text-sm text-green-900">or</span>
+            <input
+              type="datetime-local"
+              className="rounded border px-2 py-1 text-sm"
+              value={scheduledForInput}
+              onChange={(e) => setScheduledForInput(e.target.value)}
+              disabled={scheduling}
+            />
+            <Button
+              onClick={handleSchedule}
+              disabled={scheduling || !scheduledForInput}
+              size="sm"
+              variant="outline"
+            >
+              {scheduling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {scheduling ? "Scheduling…" : "Schedule"}
+            </Button>
+          </div>
         </div>
       )}
 

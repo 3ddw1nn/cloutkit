@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { action } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { action, internalAction, type ActionCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
 import { decryptSecret } from "./lib/encryption";
 import { buildOAuth1Header } from "./lib/xOAuth1";
 import { getGoogleAccessToken } from "./lib/googleOAuth";
@@ -14,20 +15,62 @@ const MOCK_URL_TEMPLATES: Record<string, string> = {
 
 export const publishCampaignSequence = action({
   args: { campaignId: v.id("campaigns") },
-  handler: async (ctx, { campaignId }) => {
+  handler: async (ctx, { campaignId }): Promise<{ successCount: number; failures: string[] }> => {
     const ids = await ctx.runQuery(internal.workspaces.getMyWorkspaceId, {});
     if (ids === null) throw new Error("Not authenticated");
 
-    const result = await ctx.runQuery(api.campaigns.getCampaignById, { campaignId });
-    if (result === null) throw new Error("Campaign not found");
+    return await executeCampaignPublishLogic(ctx, {
+      campaignId,
+      workspaceId: ids.workspaceId,
+      userId: ids.userId,
+    });
+  },
+});
 
-    const { campaign } = result;
-    if (campaign.status !== "READY_TO_PUBLISH") {
-      throw new Error(`Campaign must be READY_TO_PUBLISH to publish (current: ${campaign.status})`);
+export const publishScheduledCampaign = internalAction({
+  args: {
+    campaignId: v.id("campaigns"),
+    workspaceId: v.id("workspaces"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { campaignId, workspaceId, userId }): Promise<void> => {
+    const campaign: Doc<"campaigns"> | null = await ctx.runQuery(
+      internal.campaigns.getCampaignByIdInternal,
+      { campaignId, workspaceId },
+    );
+    if (campaign === null || campaign.status !== "SCHEDULED") {
+      // Cancelled or already handled — nothing to do.
+      return;
     }
 
-    // Get all posts for this campaign
-    const posts = await ctx.runQuery(api.posts.getPostsForCampaign, { campaignId });
+    await executeCampaignPublishLogic(ctx, { campaignId, workspaceId, userId });
+  },
+});
+
+async function executeCampaignPublishLogic(
+  ctx: ActionCtx,
+  {
+    campaignId,
+    workspaceId,
+    userId,
+  }: { campaignId: Id<"campaigns">; workspaceId: Id<"workspaces">; userId: Id<"users"> },
+): Promise<{ successCount: number; failures: string[] }> {
+  const ids = { workspaceId, userId };
+
+  const campaign: Doc<"campaigns"> | null = await ctx.runQuery(
+    internal.campaigns.getCampaignByIdInternal,
+    { campaignId, workspaceId },
+  );
+  if (campaign === null) throw new Error("Campaign not found");
+
+  if (campaign.status !== "READY_TO_PUBLISH" && campaign.status !== "SCHEDULED") {
+    throw new Error(`Campaign must be READY_TO_PUBLISH to publish (current: ${campaign.status})`);
+  }
+
+  // Get all posts for this campaign
+  const posts: Doc<"posts">[] = await ctx.runQuery(internal.posts.getPostsForCampaignInternal, {
+    campaignId,
+  });
 
     const publishResults: Array<{
       postId: string;
@@ -463,9 +506,8 @@ export const publishCampaignSequence = action({
       })),
     });
 
-    const successCount = publishResults.filter((r) => r.success).length;
-    const failures = publishResults.filter((r) => !r.success).map((r) => r.postId);
+  const successCount = publishResults.filter((r) => r.success).length;
+  const failures = publishResults.filter((r) => !r.success).map((r) => r.postId);
 
-    return { successCount, failures };
-  },
-});
+  return { successCount, failures };
+}

@@ -170,6 +170,8 @@ export default defineSchema({
     selectedPlatforms: v.array(PLATFORM),
     optionalLinks: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
+    scheduledFor: v.optional(v.number()),
+    scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
   }).index("by_workspaceId", ["workspaceId"]),
 
   campaignIdeas: defineTable({

@@ -1,7 +1,9 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { getWorkspaceIdForCurrentUser } from "./workspaces";
 import { CAMPAIGN_TYPE, CAMPAIGN_STATUS, PLATFORM, PROVIDER } from "./lib/validators";
+import { logAudit } from "./lib/audit";
 
 export const createCampaign = mutation({
   args: {
@@ -57,6 +59,17 @@ export const getCampaignById = query({
       .unique();
 
     return { campaign, idea };
+  },
+});
+
+// Internal-only: for use by scheduled/internal actions that have no caller
+// identity to resolve a workspace from (e.g. postPublishActions.ts).
+export const getCampaignByIdInternal = internalQuery({
+  args: { campaignId: v.id("campaigns"), workspaceId: v.id("workspaces") },
+  handler: async (ctx, { campaignId, workspaceId }) => {
+    const campaign = await ctx.db.get("campaigns", campaignId);
+    if (campaign === null || campaign.workspaceId !== workspaceId) return null;
+    return campaign;
   },
 });
 
@@ -156,5 +169,136 @@ export const saveCampaignIdea = internalMutation({
       totalTokens: usage.totalTokens,
       estimatedCost,
     });
+  },
+});
+
+export const scheduleCampaignPublish = mutation({
+  args: { campaignId: v.id("campaigns"), scheduledFor: v.number() },
+  handler: async (ctx, { campaignId, scheduledFor }) => {
+    const ids = await getWorkspaceIdForCurrentUser(ctx);
+    if (ids === null) throw new Error("Not authenticated");
+
+    const campaign = await ctx.db.get("campaigns", campaignId);
+    if (campaign === null || campaign.workspaceId !== ids.workspaceId) {
+      throw new Error("Campaign not found");
+    }
+
+    if (campaign.status !== "READY_TO_PUBLISH") {
+      throw new Error(
+        `Campaign must be READY_TO_PUBLISH to schedule (current: ${campaign.status})`,
+      );
+    }
+
+    if (scheduledFor <= Date.now()) {
+      throw new Error("Scheduled time must be in the future");
+    }
+
+    const scheduledFunctionId = await ctx.scheduler.runAt(
+      scheduledFor,
+      internal.postPublishActions.publishScheduledCampaign,
+      { campaignId, workspaceId: ids.workspaceId, userId: ids.userId },
+    );
+
+    await ctx.db.patch("campaigns", campaignId, {
+      status: "SCHEDULED",
+      scheduledFor,
+      scheduledFunctionId,
+    });
+
+    await logAudit(ctx, {
+      workspaceId: ids.workspaceId,
+      userId: ids.userId,
+      action: "CAMPAIGN_SCHEDULED",
+      entityType: "campaigns",
+      entityId: campaignId,
+      metadataJson: { scheduledFor },
+    });
+  },
+});
+
+export const cancelScheduledPublish = mutation({
+  args: { campaignId: v.id("campaigns") },
+  handler: async (ctx, { campaignId }) => {
+    const ids = await getWorkspaceIdForCurrentUser(ctx);
+    if (ids === null) throw new Error("Not authenticated");
+
+    const campaign = await ctx.db.get("campaigns", campaignId);
+    if (campaign === null || campaign.workspaceId !== ids.workspaceId) {
+      throw new Error("Campaign not found");
+    }
+
+    if (campaign.status !== "SCHEDULED") {
+      throw new Error(`Campaign is not scheduled (current: ${campaign.status})`);
+    }
+
+    if (campaign.scheduledFunctionId) {
+      await ctx.scheduler.cancel(campaign.scheduledFunctionId);
+    }
+
+    await ctx.db.patch("campaigns", campaignId, {
+      status: "READY_TO_PUBLISH",
+      scheduledFor: undefined,
+      scheduledFunctionId: undefined,
+    });
+
+    await logAudit(ctx, {
+      workspaceId: ids.workspaceId,
+      userId: ids.userId,
+      action: "CAMPAIGN_SCHEDULE_CANCELLED",
+      entityType: "campaigns",
+      entityId: campaignId,
+    });
+  },
+});
+
+export const getCalendarEntries = query({
+  args: {},
+  handler: async (ctx) => {
+    const ids = await getWorkspaceIdForCurrentUser(ctx);
+    if (ids === null) return [];
+
+    const campaigns = await ctx.db
+      .query("campaigns")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", ids.workspaceId))
+      .collect();
+
+    const relevant = campaigns.filter(
+      (c) =>
+        c.status === "SCHEDULED" ||
+        c.status === "PUBLISHED" ||
+        c.status === "ENGAGEMENT_REVIEW" ||
+        c.status === "COMPLETED",
+    );
+
+    const entries = await Promise.all(
+      relevant.map(async (campaign) => {
+        let date: number | undefined;
+
+        if (campaign.status === "SCHEDULED") {
+          date = campaign.scheduledFor;
+        } else {
+          const posts = await ctx.db
+            .query("posts")
+            .withIndex("by_campaignId", (q) => q.eq("campaignId", campaign._id))
+            .collect();
+          const publishedDates = posts
+            .map((p) => p.publishedAt)
+            .filter((d): d is number => d !== undefined);
+          date = publishedDates.length > 0 ? Math.min(...publishedDates) : undefined;
+        }
+
+        if (date === undefined) return null;
+
+        return {
+          campaignId: campaign._id,
+          title: campaign.title,
+          platforms: campaign.selectedPlatforms,
+          status: campaign.status === "SCHEDULED" ? "SCHEDULED" : "PUBLISHED",
+          date,
+        };
+      }),
+    );
+
+    return entries.filter((e): e is NonNullable<typeof e> => e !== null);
   },
 });

@@ -112,6 +112,18 @@ export function DashboardContent() {
             </Link>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Calendar</CardTitle>
+            <CardDescription>Scheduled & published</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            See what&apos;s scheduled to publish and what&apos;s already gone out.{" "}
+            <Link href="/calendar" className="underline">
+              View calendar
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
