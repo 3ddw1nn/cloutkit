@@ -2,15 +2,7 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { encryptSecret, decryptSecret, createSecretPreview } from "./lib/encryption";
-
-const PROVIDER = v.union(
-  v.literal("OPENAI"),
-  v.literal("ANTHROPIC"),
-  v.literal("OPENROUTER"),
-  v.literal("GROQ"),
-  v.literal("GOOGLE"),
-  v.literal("OTHER"),
-);
+import { PROVIDER } from "./lib/validators";
 
 export const createApiKey = action({
   args: { provider: PROVIDER, apiKey: v.string() },

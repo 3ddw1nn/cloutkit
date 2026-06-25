@@ -18,6 +18,7 @@ export function DashboardContent() {
   const workspace = useQuery(api.workspaces.getCurrentWorkspace);
   const brandIdentity = useQuery(api.brandIdentity.getBrandIdentity);
   const apiKeys = useQuery(api.apiKeys.listApiKeys);
+  const campaigns = useQuery(api.campaigns.getCampaigns, {});
   const { signOut } = useAuthActions();
   const router = useRouter();
   const hasActiveKey = apiKeys?.some((key) => key.status === "ACTIVE");
@@ -72,10 +73,15 @@ export function DashboardContent() {
         <Card>
           <CardHeader>
             <CardTitle>Campaigns</CardTitle>
-            <CardDescription>Coming in Phase 4</CardDescription>
+            <CardDescription>
+              {campaigns === undefined ? "Loading…" : `${campaigns.length} total`}
+            </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Generate and approve campaign sequences.
+            Generate and approve campaign sequences.{" "}
+            <Link href="/campaigns" className="underline">
+              View campaigns
+            </Link>
           </CardContent>
         </Card>
         <Card>

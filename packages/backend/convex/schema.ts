@@ -1,6 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { PLATFORM, PROVIDER, CAMPAIGN_TYPE, CAMPAIGN_STATUS } from "./lib/validators";
 
 export default defineSchema({
   ...authTables,
@@ -101,18 +102,7 @@ export default defineSchema({
 
   platformGoals: defineTable({
     workspaceId: v.id("workspaces"),
-    platform: v.union(
-      v.literal("INSTAGRAM"),
-      v.literal("FACEBOOK"),
-      v.literal("X"),
-      v.literal("YOUTUBE"),
-      v.literal("LINKEDIN"),
-      v.literal("TIKTOK"),
-      v.literal("PRODUCT_HUNT"),
-      v.literal("REDDIT"),
-      v.literal("THREADS"),
-      v.literal("BLUESKY"),
-    ),
+    platform: PLATFORM,
     enabled: v.boolean(),
     goal: v.optional(v.string()),
     contentTypes: v.optional(v.array(v.string())),
@@ -122,14 +112,7 @@ export default defineSchema({
 
   userApiKeys: defineTable({
     workspaceId: v.id("workspaces"),
-    provider: v.union(
-      v.literal("OPENAI"),
-      v.literal("ANTHROPIC"),
-      v.literal("OPENROUTER"),
-      v.literal("GROQ"),
-      v.literal("GOOGLE"),
-      v.literal("OTHER"),
-    ),
+    provider: PROVIDER,
     // AES-256-GCM via Web Crypto; the auth tag is embedded in `ciphertext`
     // (Web Crypto's AES-GCM output appends it, unlike Node's crypto module
     // which exposes it separately).
@@ -151,14 +134,7 @@ export default defineSchema({
 
   aiProviderSettings: defineTable({
     workspaceId: v.id("workspaces"),
-    activeProvider: v.union(
-      v.literal("OPENAI"),
-      v.literal("ANTHROPIC"),
-      v.literal("OPENROUTER"),
-      v.literal("GROQ"),
-      v.literal("GOOGLE"),
-      v.literal("OTHER"),
-    ),
+    activeProvider: PROVIDER,
     model: v.string(),
     maxTokensPerGeneration: v.optional(v.number()),
     monthlyTokenLimit: v.optional(v.number()),
@@ -171,5 +147,53 @@ export default defineSchema({
     entityType: v.optional(v.string()),
     entityId: v.optional(v.string()),
     metadataJson: v.optional(v.any()),
+  }).index("by_workspaceId", ["workspaceId"]),
+
+  campaigns: defineTable({
+    workspaceId: v.id("workspaces"),
+    createdById: v.id("users"),
+    title: v.string(),
+    inputTopic: v.string(),
+    objective: v.optional(v.string()),
+    campaignType: CAMPAIGN_TYPE,
+    status: CAMPAIGN_STATUS,
+    selectedPlatforms: v.array(PLATFORM),
+    optionalLinks: v.optional(v.array(v.string())),
+    notes: v.optional(v.string()),
+  }).index("by_workspaceId", ["workspaceId"]),
+
+  campaignIdeas: defineTable({
+    campaignId: v.id("campaigns"),
+    workspaceId: v.id("workspaces"),
+    mainAngle: v.string(),
+    targetAudience: v.string(),
+    tone: v.string(),
+    keyMessage: v.string(),
+    platformStrategyJson: v.any(),
+    contentDirection: v.string(),
+    engagementStrategy: v.string(),
+    recommendedSequenceJson: v.any(),
+    rawAiOutput: v.string(),
+    approved: v.boolean(),
+    approvedAt: v.optional(v.number()),
+  })
+    .index("by_campaignId", ["campaignId"])
+    .index("by_workspaceId", ["workspaceId"]),
+
+  apiUsageLogs: defineTable({
+    workspaceId: v.id("workspaces"),
+    provider: PROVIDER,
+    model: v.string(),
+    feature: v.union(
+      v.literal("CAMPAIGN_IDEA"),
+      v.literal("FULL_SEQUENCE"),
+      v.literal("POST_REGENERATION"),
+      v.literal("ENGAGEMENT_WAVE"),
+      v.literal("BRAND_PROFILE_GENERATION"),
+    ),
+    promptTokens: v.number(),
+    completionTokens: v.number(),
+    totalTokens: v.number(),
+    estimatedCost: v.number(),
   }).index("by_workspaceId", ["workspaceId"]),
 });

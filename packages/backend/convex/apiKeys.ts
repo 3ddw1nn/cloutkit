@@ -2,15 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { getWorkspaceIdForCurrentUser } from "./workspaces";
 import { logAudit } from "./lib/audit";
-
-const PROVIDER = v.union(
-  v.literal("OPENAI"),
-  v.literal("ANTHROPIC"),
-  v.literal("OPENROUTER"),
-  v.literal("GROQ"),
-  v.literal("GOOGLE"),
-  v.literal("OTHER"),
-);
+import { PROVIDER } from "./lib/validators";
 
 export const listApiKeys = query({
   args: {},
@@ -145,6 +137,20 @@ export const getEncryptedApiKeyForTest = internalQuery({
     const row = await ctx.db.get("userApiKeys", apiKeyId);
     if (row === null) return null;
     return { encryptedKey: row.encryptedKey, workspaceId: row.workspaceId };
+  },
+});
+
+export const getActiveApiKeyForProvider = internalQuery({
+  args: { workspaceId: v.id("workspaces"), provider: PROVIDER },
+  handler: async (ctx, { workspaceId, provider }) => {
+    const row = await ctx.db
+      .query("userApiKeys")
+      .withIndex("by_workspaceId_and_provider", (q) =>
+        q.eq("workspaceId", workspaceId).eq("provider", provider),
+      )
+      .unique();
+    if (row === null || row.status !== "ACTIVE") return null;
+    return { encryptedKey: row.encryptedKey };
   },
 });
 

@@ -19,9 +19,12 @@
     "./convex/*": "./convex/*"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.74",
     "@auth/core": "^0.41.2",
     "@convex-dev/auth": "^0.0.94",
-    "convex": "^1.42.0"
+    "ai": "^6.0.209",
+    "convex": "^1.42.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

@@ -1,23 +1,8 @@
-import {
-  convexAuthNextjsToken,
-  isAuthenticatedNextjs,
-} from "@convex-dev/auth/nextjs/server";
-import { fetchQuery } from "convex/nextjs";
-import { redirect } from "next/navigation";
-import { api } from "@cloutkit/backend/convex/_generated/api";
+import { requireOnboardedUser } from "@/lib/auth-guards";
 import { DashboardContent } from "./dashboard-content";
 
 export default async function DashboardPage() {
-  if (!(await isAuthenticatedNextjs())) {
-    redirect("/signin");
-  }
-
-  const user = await fetchQuery(api.users.getCurrentUser, {}, {
-    token: await convexAuthNextjsToken(),
-  });
-  if (!user?.onboardingCompleted) {
-    redirect("/onboarding");
-  }
+  await requireOnboardedUser();
 
   return <DashboardContent />;
 }
