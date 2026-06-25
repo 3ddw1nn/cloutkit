@@ -29,9 +29,11 @@ export function SocialAccountsContent() {
   const connectX = useAction(api.socialConnectionActions.connectXAccount);
   const connectFacebook = useAction(api.socialConnectionActions.connectFacebookAccount);
   const connectInstagram = useAction(api.socialConnectionActions.connectInstagramAccount);
+  const connectYoutube = useAction(api.socialConnectionActions.connectYoutubeAccount);
   const testConnection = useAction(api.socialConnectionActions.testConnection);
   const testFacebookConnection = useAction(api.socialConnectionActions.testFacebookConnection);
   const testInstagramConnection = useAction(api.socialConnectionActions.testInstagramConnection);
+  const testYoutubeConnection = useAction(api.socialConnectionActions.testYoutubeConnection);
   const deleteConnection = useMutation(api.socialConnections.deleteConnection);
 
   const [apiKey, setApiKey] = useState("");
@@ -41,9 +43,13 @@ export function SocialAccountsContent() {
   const [facebookToken, setFacebookToken] = useState("");
   const [pageAccessToken, setPageAccessToken] = useState("");
   const [pageId, setPageId] = useState("");
+  const [googleClientId, setGoogleClientId] = useState("");
+  const [googleClientSecret, setGoogleClientSecret] = useState("");
+  const [googleRefreshToken, setGoogleRefreshToken] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingFacebook, setSavingFacebook] = useState(false);
   const [savingInstagram, setSavingInstagram] = useState(false);
+  const [savingYoutube, setSavingYoutube] = useState(false);
   const [testingId, setTestingId] = useState<Id<"socialConnections"> | null>(null);
 
   async function handleConnectX(event: FormEvent<HTMLFormElement>) {
@@ -118,6 +124,32 @@ export function SocialAccountsContent() {
     }
   }
 
+  async function handleConnectYoutube(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!googleClientId.trim() || !googleClientSecret.trim() || !googleRefreshToken.trim()) {
+      toast.error("All fields are required");
+      return;
+    }
+
+    setSavingYoutube(true);
+    try {
+      await connectYoutube({
+        clientId: googleClientId.trim(),
+        clientSecret: googleClientSecret.trim(),
+        refreshToken: googleRefreshToken.trim(),
+      });
+      setGoogleClientId("");
+      setGoogleClientSecret("");
+      setGoogleRefreshToken("");
+      toast.success("YouTube account connected");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not connect account";
+      toast.error(message);
+    } finally {
+      setSavingYoutube(false);
+    }
+  }
+
   async function handleTest(id: Id<"socialConnections">, platform: string) {
     setTestingId(id);
     try {
@@ -126,6 +158,8 @@ export function SocialAccountsContent() {
         testFn = testFacebookConnection;
       } else if (platform === "INSTAGRAM") {
         testFn = testInstagramConnection;
+      } else if (platform === "YOUTUBE") {
+        testFn = testYoutubeConnection;
       } else {
         testFn = testConnection;
       }
@@ -284,6 +318,65 @@ export function SocialAccountsContent() {
             >
               {savingInstagram && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {savingInstagram ? "Connecting…" : "Connect account"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Connect YouTube</CardTitle>
+          <CardDescription>
+            Create an OAuth Client in Google Cloud Console and generate a refresh token with the
+            youtube.upload scope (e.g. via OAuth Playground using your own credentials).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="flex flex-col gap-4" onSubmit={handleConnectYoutube}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="googleClientId">Client ID</Label>
+              <Input
+                id="googleClientId"
+                type="password"
+                value={googleClientId}
+                onChange={(e) => setGoogleClientId(e.target.value)}
+                placeholder="From Google Cloud Console"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="googleClientSecret">Client Secret</Label>
+              <Input
+                id="googleClientSecret"
+                type="password"
+                value={googleClientSecret}
+                onChange={(e) => setGoogleClientSecret(e.target.value)}
+                placeholder="From Google Cloud Console"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="googleRefreshToken">Refresh Token</Label>
+              <Input
+                id="googleRefreshToken"
+                type="password"
+                value={googleRefreshToken}
+                onChange={(e) => setGoogleRefreshToken(e.target.value)}
+                placeholder="From OAuth Playground"
+                autoComplete="off"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={
+                savingYoutube ||
+                !googleClientId.trim() ||
+                !googleClientSecret.trim() ||
+                !googleRefreshToken.trim()
+              }
+            >
+              {savingYoutube && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {savingYoutube ? "Connecting…" : "Connect account"}
             </Button>
           </form>
         </CardContent>

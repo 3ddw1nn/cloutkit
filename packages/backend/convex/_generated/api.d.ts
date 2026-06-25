@@ -20,6 +20,7 @@ import type * as http from "../http.js";
 import type * as lib_ai from "../lib/ai.js";
 import type * as lib_audit from "../lib/audit.js";
 import type * as lib_encryption from "../lib/encryption.js";
+import type * as lib_googleOAuth from "../lib/googleOAuth.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as lib_xOAuth1 from "../lib/xOAuth1.js";
 import type * as onboarding from "../onboarding.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ai": typeof lib_ai;
   "lib/audit": typeof lib_audit;
   "lib/encryption": typeof lib_encryption;
+  "lib/googleOAuth": typeof lib_googleOAuth;
   "lib/validators": typeof lib_validators;
   "lib/xOAuth1": typeof lib_xOAuth1;
   onboarding: typeof onboarding;

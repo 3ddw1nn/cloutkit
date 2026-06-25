@@ -264,24 +264,32 @@ function PostCard({ post, isPublished }: PostCardProps) {
             </div>
           )}
 
-          {post.platform === "INSTAGRAM" && (
+          {(post.platform === "INSTAGRAM" || post.platform === "YOUTUBE") && (
             <div className="mb-3 rounded border border-blue-200 bg-blue-50 p-3">
               {post.mediaUrl ? (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-gray-700">Image attached:</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={post.mediaUrl} alt="Post" className="h-32 w-32 rounded object-cover" />
+                  <p className="text-xs font-semibold text-gray-700">
+                    {post.platform === "YOUTUBE" ? "Video attached:" : "Image attached:"}
+                  </p>
+                  {post.platform === "YOUTUBE" ? (
+                    <video src={post.mediaUrl} controls className="h-32 w-48 rounded" />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={post.mediaUrl} alt="Post" className="h-32 w-32 rounded object-cover" />
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-gray-700">
-                    Image required for Instagram posting
+                    {post.platform === "YOUTUBE"
+                      ? "Video required for YouTube posting"
+                      : "Image required for Instagram posting"}
                   </p>
                   <div className="flex gap-2">
                     <label className="flex-1">
                       <input
                         type="file"
-                        accept="image/*"
+                        accept={post.platform === "YOUTUBE" ? "video/*" : "image/*"}
                         disabled={isUploadingMedia}
                         onChange={async (e) => {
                           const file = e.currentTarget.files?.[0];
@@ -297,9 +305,11 @@ function PostCard({ post, isPublished }: PostCardProps) {
                               storageId: string;
                             };
                             await attachMedia({ postId: post._id, storageId: storageId as Id<"_storage"> });
-                            toast.success("Image uploaded");
+                            toast.success(
+                              post.platform === "YOUTUBE" ? "Video uploaded" : "Image uploaded",
+                            );
                           } catch {
-                            toast.error("Failed to upload image");
+                            toast.error("Failed to upload media");
                           } finally {
                             setIsUploadingMedia(false);
                           }
@@ -330,6 +340,7 @@ function PostCard({ post, isPublished }: PostCardProps) {
                         )}
                       </Button>
                     </label>
+                    {post.platform === "INSTAGRAM" && (
                     <Button
                       type="button"
                       size="sm"
@@ -361,6 +372,7 @@ function PostCard({ post, isPublished }: PostCardProps) {
                         </>
                       )}
                     </Button>
+                    )}
                   </div>
                 </div>
               )}
@@ -399,7 +411,11 @@ function PostCard({ post, isPublished }: PostCardProps) {
                   <Button
                     size="sm"
                     onClick={handleApprove}
-                    disabled={isLoading || (post.platform === "INSTAGRAM" && !post.mediaUrl)}
+                    disabled={
+                      isLoading ||
+                      ((post.platform === "INSTAGRAM" || post.platform === "YOUTUBE") &&
+                        !post.mediaUrl)
+                    }
                   >
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Approve

@@ -3,6 +3,7 @@ import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { decryptSecret } from "./lib/encryption";
 import { buildOAuth1Header } from "./lib/xOAuth1";
+import { getGoogleAccessToken } from "./lib/googleOAuth";
 
 const MOCK_URL_TEMPLATES: Record<string, string> = {
   INSTAGRAM: "https://instagram.com/p/{id}",
@@ -54,7 +55,120 @@ export const publishCampaignSequence = action({
       }
 
       // Check if this post's platform has a real connection
-      if (post.platform === "INSTAGRAM") {
+      if (post.platform === "YOUTUBE") {
+        const youtubeConnection = await ctx.runQuery(
+          internal.socialConnections.getActiveConnectionForPlatform,
+          {
+            workspaceId: ids.workspaceId,
+            platform: "YOUTUBE",
+          },
+        );
+
+        if (youtubeConnection !== null && post.mediaStorageId) {
+          try {
+            const credentialsJson = await decryptSecret(youtubeConnection.encryptedCredentials);
+            const credentials = JSON.parse(credentialsJson) as {
+              clientId: string;
+              clientSecret: string;
+              refreshToken: string;
+            };
+
+            const videoBlob = await ctx.storage.get(post.mediaStorageId);
+            if (!videoBlob) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            const accessToken = await getGoogleAccessToken(credentials);
+
+            const title =
+              post.content.length > 100 ? post.content.slice(0, 99) + "…" : post.content;
+
+            // Step 1: Initiate resumable upload
+            const initResponse = await fetch(
+              "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
+                  "X-Upload-Content-Type": videoBlob.type || "video/*",
+                  "X-Upload-Content-Length": String(videoBlob.size),
+                },
+                body: JSON.stringify({
+                  snippet: {
+                    title,
+                    description: post.content,
+                  },
+                  status: {
+                    privacyStatus: "public",
+                  },
+                }),
+              },
+            );
+
+            if (!initResponse.ok) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            const uploadUrl = initResponse.headers.get("Location");
+            if (!uploadUrl) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            // Step 2: Upload the video bytes
+            const uploadResponse = await fetch(uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": videoBlob.type || "video/*",
+              },
+              body: videoBlob,
+            });
+
+            if (!uploadResponse.ok) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            const uploadData = (await uploadResponse.json()) as { id?: string };
+            const videoId = uploadData.id;
+
+            if (!videoId) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            publishResults.push({
+              postId: post._id,
+              success: true,
+              publishedAt: now,
+              mockPlatformPostId: videoId,
+              mockPublishedUrl: `https://www.youtube.com/watch?v=${videoId}`,
+              publishMethod: "REAL",
+            });
+            continue;
+          } catch {
+            // Fall through to mock publishing
+          }
+        }
+      } else if (post.platform === "INSTAGRAM") {
         const instagramConnection = await ctx.runQuery(
           internal.socialConnections.getActiveConnectionForPlatform,
           {
