@@ -1,6 +1,7 @@
 "use client";
 
 import { useAction, useMutation, useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@cloutkit/backend/convex/_generated/api";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
 
 function IdeaEditForm({
   idea,
@@ -68,12 +70,15 @@ function IdeaEditForm({
 }
 
 export function CampaignIdeaReview({ campaignId }: { campaignId: Id<"campaigns"> }) {
+  const router = useRouter();
   const result = useQuery(api.campaigns.getCampaignById, { campaignId });
   const approveCampaignIdea = useMutation(api.campaigns.approveCampaignIdea);
   const updateCampaignIdea = useMutation(api.campaigns.updateCampaignIdea);
   const generateCampaignIdea = useAction(api.campaignActions.generateCampaignIdea);
+  const generateSequence = useAction(api.postActions.generateFullSequence);
 
   const [regenerating, setRegenerating] = useState(false);
+  const [generatingSequence, setGeneratingSequence] = useState(false);
 
   if (result === undefined) return <p className="text-muted-foreground">Loading…</p>;
   const idea = result?.idea;
@@ -95,6 +100,20 @@ export function CampaignIdeaReview({ campaignId }: { campaignId: Id<"campaigns">
       toast.error("Could not regenerate idea");
     } finally {
       setRegenerating(false);
+    }
+  }
+
+  async function handleGenerateSequence() {
+    setGeneratingSequence(true);
+    try {
+      await generateSequence({ campaignId });
+      toast.success("Sequence generated!");
+      router.push(`/campaigns/${campaignId}/sequence`);
+    } catch (error) {
+      toast.error("Could not generate sequence");
+      console.error(error);
+    } finally {
+      setGeneratingSequence(false);
     }
   }
 
@@ -170,12 +189,21 @@ export function CampaignIdeaReview({ campaignId }: { campaignId: Id<"campaigns">
         </CardContent>
       </Card>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button onClick={handleApprove} disabled={idea.approved}>
           {idea.approved ? "Approved" : "Approve"}
         </Button>
         <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
+          {regenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {regenerating ? "Regenerating…" : "Regenerate"}
+        </Button>
+        <Button
+          onClick={handleGenerateSequence}
+          disabled={!idea.approved || generatingSequence}
+          className="ml-auto"
+        >
+          {generatingSequence && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {generatingSequence ? "Generating…" : "Generate full sequence"}
         </Button>
       </div>
     </div>

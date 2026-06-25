@@ -196,4 +196,18 @@ export default defineSchema({
     totalTokens: v.number(),
     estimatedCost: v.number(),
   }).index("by_workspaceId", ["workspaceId"]),
+
+  posts: defineTable({
+    campaignId: v.id("campaigns"),
+    workspaceId: v.id("workspaces"),
+    platform: PLATFORM,
+    contentType: v.string(),
+    sequenceOrder: v.number(),
+    content: v.string(),
+    mediaDescription: v.optional(v.string()),
+    status: v.union(v.literal("DRAFT"), v.literal("APPROVED"), v.literal("REJECTED")),
+    rawAiOutput: v.string(),
+  })
+    .index("by_campaignId", ["campaignId"])
+    .index("by_workspaceId", ["workspaceId"]),
 });

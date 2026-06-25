@@ -96,3 +96,122 @@ export async function generateCampaignIdea(params: {
     estimatedCost: estimateCost(model, promptTokens, completionTokens),
   };
 }
+
+export async function generateFullSequence(params: {
+  apiKey: string;
+  model: string;
+  brandIdentity: Doc<"brandIdentities"> | null;
+  campaign: Doc<"campaigns">;
+  idea: Doc<"campaignIdeas">;
+}): Promise<{
+  posts: Array<{ content: string; mediaDescription: string }>;
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+  estimatedCost: number;
+}> {
+  const { apiKey, model, brandIdentity, campaign, idea } = params;
+  const provider = createOpenAI({ apiKey });
+
+  const sequenceSlots = (idea.recommendedSequenceJson as Array<{
+    platform: string;
+    contentType: string;
+    order: number;
+  }>) || [];
+
+  const systemPrompt = [
+    "You are a social media content strategist.",
+    `Brand: ${brandIdentity?.brandName ?? "Unknown"}`,
+    brandIdentity?.shortBio ? `Bio: ${brandIdentity.shortBio}` : null,
+    `Campaign angle: ${idea.mainAngle}`,
+    `Key message: ${idea.keyMessage}`,
+    `Tone: ${idea.tone}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const slotsDescription = sequenceSlots
+    .map((s, i) => `Slot ${i + 1}: ${s.platform} (${s.contentType})`)
+    .join("\n");
+
+  const userPrompt = `Write real, engaging post content for these platforms:\n${slotsDescription}\n\nReturn a JSON array with one object per slot, each with "content" and "mediaDescription" fields. Keep it concise and platform-native.`;
+
+  const postSchema = z.object({
+    content: z.string(),
+    mediaDescription: z.string(),
+  });
+
+  const result = await generateText({
+    model: provider(model),
+    system: systemPrompt,
+    prompt: userPrompt,
+    output: Output.object({ schema: z.array(postSchema) }),
+  });
+
+  const promptTokens = result.usage.inputTokens ?? 0;
+  const completionTokens = result.usage.outputTokens ?? 0;
+
+  return {
+    posts: result.output,
+    usage: {
+      promptTokens,
+      completionTokens,
+      totalTokens: result.usage.totalTokens ?? promptTokens + completionTokens,
+    },
+    estimatedCost: estimateCost(model, promptTokens, completionTokens),
+  };
+}
+
+export async function regeneratePost(params: {
+  apiKey: string;
+  model: string;
+  brandIdentity: Doc<"brandIdentities"> | null;
+  campaign: Doc<"campaigns">;
+  post: Doc<"posts">;
+  idea: Doc<"campaignIdeas">;
+}): Promise<{
+  content: string;
+  mediaDescription: string;
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+  estimatedCost: number;
+}> {
+  const { apiKey, model, brandIdentity, campaign, post, idea } = params;
+  const provider = createOpenAI({ apiKey });
+
+  const systemPrompt = [
+    "You are a social media content strategist.",
+    `Brand: ${brandIdentity?.brandName ?? "Unknown"}`,
+    brandIdentity?.shortBio ? `Bio: ${brandIdentity.shortBio}` : null,
+    `Campaign angle: ${idea.mainAngle}`,
+    `Key message: ${idea.keyMessage}`,
+    `Tone: ${idea.tone}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const userPrompt = `Rewrite this post in a different way:\nPlatform: ${post.platform}\nType: ${post.contentType}\nExisting post: "${post.content}"\n\nReturn a JSON object with "content" and "mediaDescription" fields.`;
+
+  const postSchema = z.object({
+    content: z.string(),
+    mediaDescription: z.string(),
+  });
+
+  const result = await generateText({
+    model: provider(model),
+    system: systemPrompt,
+    prompt: userPrompt,
+    output: Output.object({ schema: postSchema }),
+  });
+
+  const promptTokens = result.usage.inputTokens ?? 0;
+  const completionTokens = result.usage.outputTokens ?? 0;
+
+  return {
+    content: result.output.content,
+    mediaDescription: result.output.mediaDescription,
+    usage: {
+      promptTokens,
+      completionTokens,
+      totalTokens: result.usage.totalTokens ?? promptTokens + completionTokens,
+    },
+    estimatedCost: estimateCost(model, promptTokens, completionTokens),
+  };
+}

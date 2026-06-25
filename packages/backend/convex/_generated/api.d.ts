@@ -21,6 +21,8 @@ import type * as lib_encryption from "../lib/encryption.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as onboarding from "../onboarding.js";
 import type * as platformGoals from "../platformGoals.js";
+import type * as postActions from "../postActions.js";
+import type * as posts from "../posts.js";
 import type * as users from "../users.js";
 import type * as workspaces from "../workspaces.js";
 
@@ -44,6 +46,8 @@ declare const fullApi: ApiFromModules<{
   "lib/validators": typeof lib_validators;
   onboarding: typeof onboarding;
   platformGoals: typeof platformGoals;
+  postActions: typeof postActions;
+  posts: typeof posts;
   users: typeof users;
   workspaces: typeof workspaces;
 }>;

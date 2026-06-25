@@ -11,6 +11,7 @@ import { formatEnumLabel } from "../lib";
 
 export function CampaignOverview({ campaignId }: { campaignId: Id<"campaigns"> }) {
   const result = useQuery(api.campaigns.getCampaignById, { campaignId });
+  const posts = useQuery(api.posts.getPostsForCampaign, { campaignId });
 
   if (result === undefined) return <p className="text-muted-foreground">Loading…</p>;
   if (result === null) return <p className="text-muted-foreground">Campaign not found.</p>;
@@ -57,11 +58,18 @@ export function CampaignOverview({ campaignId }: { campaignId: Id<"campaigns"> }
         </CardContent>
       </Card>
 
-      {idea && (
-        <Link href={`/campaigns/${campaignId}/idea`} className={buttonVariants()}>
-          {idea.approved ? "View campaign idea" : "Review campaign idea"}
-        </Link>
-      )}
+      <div className="flex gap-2 flex-wrap">
+        {idea && (
+          <Link href={`/campaigns/${campaignId}/idea`} className={buttonVariants()}>
+            {idea.approved ? "View campaign idea" : "Review campaign idea"}
+          </Link>
+        )}
+        {posts && posts.length > 0 && (
+          <Link href={`/campaigns/${campaignId}/sequence`} className={buttonVariants()}>
+            Review sequence
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
