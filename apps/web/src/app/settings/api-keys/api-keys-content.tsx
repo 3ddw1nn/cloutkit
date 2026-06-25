@@ -85,7 +85,7 @@ export function ApiKeysContent() {
         <h1 className="text-2xl font-semibold tracking-tight">API keys</h1>
         <p className="text-muted-foreground">
           Bring your own AI provider key. We encrypt it at rest and only ever decrypt it
-          server-side. This is what keeps CloutKit itself free — you pay the provider
+          server-side. CloutKit itself is free for a limited time — you pay the provider
           directly for what you generate, nothing goes through us.
         </p>
       </div>

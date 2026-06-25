@@ -10,8 +10,8 @@ export default function Home() {
         step by step.
       </p>
       <p className="max-w-md text-sm text-muted-foreground">
-        Free to use — bring your own OpenAI API key and you only ever pay
-        OpenAI directly for what you generate.
+        Free for a limited time — bring your own OpenAI API key and you only
+        ever pay OpenAI directly for what you generate.
       </p>
       <div className="flex gap-3">
         <Link href="/signup" className={buttonVariants()}>
