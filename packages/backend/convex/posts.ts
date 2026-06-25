@@ -220,50 +220,47 @@ const MOCK_URL_TEMPLATES: Record<string, string> = {
   YOUTUBE: "https://youtube.com/watch?v={id}",
 };
 
-export const publishCampaignSequence = mutation({
-  args: { campaignId: v.id("campaigns") },
-  handler: async (ctx, { campaignId }) => {
-    const ids = await getWorkspaceIdForCurrentUser(ctx);
-    if (ids === null) throw new Error("Not authenticated");
-
-    const campaign = await ctx.db.get("campaigns", campaignId);
-    if (campaign === null || campaign.workspaceId !== ids.workspaceId) {
-      throw new Error("Campaign not found");
-    }
-
-    if (campaign.status !== "READY_TO_PUBLISH") {
-      throw new Error(
-        `Campaign must be READY_TO_PUBLISH to publish (current: ${campaign.status})`,
-      );
-    }
-
-    // Get all posts for this campaign
-    const posts = await ctx.db
-      .query("posts")
-      .withIndex("by_campaignId", (q) => q.eq("campaignId", campaignId))
-      .collect();
-
-    // Publish each post
+export const completeCampaignPublish = internalMutation({
+  args: {
+    campaignId: v.id("campaigns"),
+    workspaceId: v.id("workspaces"),
+    userId: v.id("users"),
+    results: v.array(
+      v.object({
+        postId: v.id("posts"),
+        success: v.boolean(),
+        publishedAt: v.optional(v.number()),
+        mockPlatformPostId: v.optional(v.string()),
+        mockPublishedUrl: v.optional(v.string()),
+        publishMethod: v.optional(v.union(v.literal("MOCK"), v.literal("REAL"))),
+      }),
+    ),
+  },
+  handler: async (ctx, { campaignId, workspaceId, userId, results }) => {
     const now = Date.now();
-    for (const post of posts) {
-      const mockPostId = post._id;
-      const template = MOCK_URL_TEMPLATES[post.platform] || MOCK_URL_TEMPLATES.X;
-      const mockUrl = template.replace("{id}", mockPostId);
 
-      await ctx.db.patch("posts", post._id, {
-        publishedAt: now,
-        mockPlatformPostId: mockPostId,
-        mockPublishedUrl: mockUrl,
-      });
+    for (const result of results) {
+      if (result.success) {
+        const patch: Record<string, unknown> = {
+          publishedAt: result.publishedAt ?? now,
+          mockPlatformPostId: result.mockPlatformPostId,
+          mockPublishedUrl: result.mockPublishedUrl,
+        };
+        if (result.publishMethod) {
+          patch.publishMethod = result.publishMethod;
+        }
+        await ctx.db.patch("posts", result.postId, patch);
+      }
     }
 
-    // Update campaign status
-    await ctx.db.patch("campaigns", campaignId, { status: "PUBLISHED" });
+    const allPublished = results.every((r) => r.success);
+    if (allPublished) {
+      await ctx.db.patch("campaigns", campaignId, { status: "PUBLISHED" });
+    }
 
-    // Log the action
     await logAudit(ctx, {
-      workspaceId: ids.workspaceId,
-      userId: ids.userId,
+      workspaceId,
+      userId,
       action: "CAMPAIGN_PUBLISHED",
       entityType: "campaigns",
       entityId: campaignId,

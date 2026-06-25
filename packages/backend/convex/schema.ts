@@ -220,9 +220,29 @@ export default defineSchema({
     publishedAt: v.optional(v.number()),
     mockPlatformPostId: v.optional(v.string()),
     mockPublishedUrl: v.optional(v.string()),
+    publishMethod: v.optional(v.union(v.literal("MOCK"), v.literal("REAL"))),
   })
     .index("by_campaignId", ["campaignId"])
     .index("by_workspaceId", ["workspaceId"]),
+
+  socialConnections: defineTable({
+    workspaceId: v.id("workspaces"),
+    platform: PLATFORM,
+    encryptedCredentials: v.object({
+      iv: v.string(),
+      ciphertext: v.string(),
+    }),
+    accountHandle: v.optional(v.string()),
+    status: v.union(
+      v.literal("ACTIVE"),
+      v.literal("INVALID"),
+      v.literal("DISABLED"),
+      v.literal("DELETED"),
+    ),
+    lastTestedAt: v.optional(v.number()),
+  })
+    .index("by_workspaceId", ["workspaceId"])
+    .index("by_workspaceId_and_platform", ["workspaceId", "platform"]),
 
   engagementWaves: defineTable({
     campaignId: v.id("campaigns"),

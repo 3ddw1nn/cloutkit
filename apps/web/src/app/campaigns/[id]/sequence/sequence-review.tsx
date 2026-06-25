@@ -16,7 +16,7 @@ interface SequenceReviewProps {
 export function SequenceReview({ campaignId }: SequenceReviewProps) {
   const campaign = useQuery(api.campaigns.getCampaignById, { campaignId });
   const posts = useQuery(api.posts.getPostsForCampaign, { campaignId });
-  const publishCampaign = useMutation(api.posts.publishCampaignSequence);
+  const publishCampaign = useAction(api.postPublishActions.publishCampaignSequence);
   const [publishing, setPublishing] = useState(false);
 
   if (!campaign || !posts) {
@@ -34,10 +34,14 @@ export function SequenceReview({ campaignId }: SequenceReviewProps) {
   const handlePublish = async () => {
     setPublishing(true);
     try {
-      await publishCampaign({ campaignId });
-      toast.success("Campaign published!");
-    } catch {
-      toast.error("Failed to publish campaign");
+      const result = await publishCampaign({ campaignId });
+      toast.success(`Campaign published! ${result.successCount} posts.`);
+      if (result.failures.length > 0) {
+        toast.error(`${result.failures.length} post(s) failed to publish.`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to publish campaign";
+      toast.error(message);
     } finally {
       setPublishing(false);
     }
@@ -241,6 +245,11 @@ function PostCard({ post, isPublished }: PostCardProps) {
         <>
           <div className="mb-3">
             <p className="text-sm whitespace-pre-wrap">{post.content}</p>
+            {post.platform === "X" && (
+              <p className={`text-xs mt-2 ${post.content.length > 280 ? "text-red-600" : "text-gray-500"}`}>
+                {post.content.length} / 280 characters
+              </p>
+            )}
           </div>
           {post.mediaDescription && (
             <div className="mb-3 rounded bg-white/50 p-2">
@@ -252,8 +261,11 @@ function PostCard({ post, isPublished }: PostCardProps) {
           {isPublished && post.mockPublishedUrl && (
             <div className="mb-3 rounded bg-white/50 p-2">
               <p className="text-xs text-gray-600">
-                <span className="font-semibold">Published URL (mock):</span>{" "}
-                {post.mockPublishedUrl}
+                <span className="font-semibold">Published URL</span>{" "}
+                <span className="text-gray-500">
+                  {post.publishMethod === "REAL" ? "(live)" : "(mock)"}
+                </span>
+                : {post.mockPublishedUrl}
               </p>
               {post.publishedAt && (
                 <p className="text-xs text-gray-600 mt-1">

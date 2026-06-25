@@ -1,0 +1,204 @@
+"use client";
+
+import { useAction, useMutation, useQuery } from "convex/react";
+import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import { api } from "@cloutkit/backend/convex/_generated/api";
+import type { Id } from "@cloutkit/backend/convex/_generated/dataModel";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
+
+function statusVariant(status: string): "default" | "destructive" | "secondary" {
+  if (status === "ACTIVE") return "default";
+  if (status === "INVALID") return "destructive";
+  return "secondary";
+}
+
+export function SocialAccountsContent() {
+  const connections = useQuery(api.socialConnections.listConnections);
+  const connectX = useAction(api.socialConnectionActions.connectXAccount);
+  const testConnection = useAction(api.socialConnectionActions.testConnection);
+  const deleteConnection = useMutation(api.socialConnections.deleteConnection);
+
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+  const [accessTokenSecret, setAccessTokenSecret] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testingId, setTestingId] = useState<Id<"socialConnections"> | null>(null);
+
+  async function handleConnectX(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!apiKey.trim() || !apiSecret.trim() || !accessToken.trim() || !accessTokenSecret.trim()) {
+      toast.error("All fields are required");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await connectX({
+        apiKey: apiKey.trim(),
+        apiSecret: apiSecret.trim(),
+        accessToken: accessToken.trim(),
+        accessTokenSecret: accessTokenSecret.trim(),
+      });
+      setApiKey("");
+      setApiSecret("");
+      setAccessToken("");
+      setAccessTokenSecret("");
+      toast.success("X account connected");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not connect account";
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleTest(id: Id<"socialConnections">) {
+    setTestingId(id);
+    try {
+      const result = await testConnection({ connectionId: id });
+      toast[result.success ? "success" : "error"](
+        result.success ? "Connection is valid" : "Connection failed validation",
+      );
+    } catch {
+      toast.error("Could not test connection");
+    } finally {
+      setTestingId(null);
+    }
+  }
+
+  async function handleDelete(id: Id<"socialConnections">) {
+    await deleteConnection({ id });
+    toast.success("Connection removed");
+  }
+
+  return (
+    <div className="flex w-full max-w-xl flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Social accounts</h1>
+        <p className="text-muted-foreground">
+          Connect your social media accounts to publish campaigns directly.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Connect X (Twitter)</CardTitle>
+          <CardDescription>
+            Generate credentials from your X Developer App with Read and Write permissions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="flex flex-col gap-4" onSubmit={handleConnectX}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="apiKey">API Key</Label>
+              <Input
+                id="apiKey"
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="From X Developer Portal"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="apiSecret">API Secret</Label>
+              <Input
+                id="apiSecret"
+                type="password"
+                value={apiSecret}
+                onChange={(e) => setApiSecret(e.target.value)}
+                placeholder="From X Developer Portal"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="accessToken">Access Token</Label>
+              <Input
+                id="accessToken"
+                type="password"
+                value={accessToken}
+                onChange={(e) => setAccessToken(e.target.value)}
+                placeholder="From X Developer App Settings"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="accessTokenSecret">Access Token Secret</Label>
+              <Input
+                id="accessTokenSecret"
+                type="password"
+                value={accessTokenSecret}
+                onChange={(e) => setAccessTokenSecret(e.target.value)}
+                placeholder="From X Developer App Settings"
+                autoComplete="off"
+              />
+            </div>
+            <Button type="submit" disabled={saving || !apiKey.trim()}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {saving ? "Connecting…" : "Connect account"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Your accounts</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {connections === undefined && (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          )}
+          {connections?.length === 0 && (
+            <p className="text-sm text-muted-foreground">No accounts connected yet.</p>
+          )}
+          {connections?.map((conn) => (
+            <div
+              key={conn._id}
+              className="flex items-center justify-between gap-4 rounded-lg border p-3"
+            >
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{conn.platform}</span>
+                  <Badge variant={statusVariant(conn.status)}>{conn.status}</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  @{conn.accountHandle}
+                  {conn.lastTestedAt
+                    ? ` · tested ${new Date(conn.lastTestedAt).toLocaleString()}`
+                    : " · never tested"}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={testingId === conn._id}
+                  onClick={() => handleTest(conn._id)}
+                >
+                  {testingId === conn._id ? "Testing…" : "Test"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => handleDelete(conn._id)}>
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -60,13 +60,17 @@ export function DashboardContent() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>API keys</CardTitle>
+            <CardTitle>API keys & socials</CardTitle>
             <CardDescription>{hasActiveKey ? "Connected" : "Not connected yet"}</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Bring your own encrypted AI provider key.{" "}
+            Bring your own AI keys and connect social accounts.{" "}
             <Link href="/settings/api-keys" className="underline">
               Manage keys
+            </Link>
+            {" · "}
+            <Link href="/settings/social-accounts" className="underline">
+              Social accounts
             </Link>
           </CardContent>
         </Card>
