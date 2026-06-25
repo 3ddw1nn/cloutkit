@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { getWorkspaceIdForCurrentUser } from "./workspaces";
 import { logAudit } from "./lib/audit";
 import { PLATFORM } from "./lib/validators";
@@ -24,6 +24,18 @@ export const getPostsForCampaign = query({
     );
 
     return postsWithMedia;
+  },
+});
+
+export const getRealPublishedPostsForWorkspace = internalQuery({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, { workspaceId }) => {
+    const posts = await ctx.db
+      .query("posts")
+      .withIndex("by_workspaceId", (q) => q.eq("workspaceId", workspaceId))
+      .collect();
+
+    return posts.filter((p) => p.publishMethod === "REAL" && p.mockPlatformPostId);
   },
 });
 

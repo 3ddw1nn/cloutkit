@@ -246,6 +246,19 @@ export default defineSchema({
     .index("by_workspaceId", ["workspaceId"])
     .index("by_workspaceId_and_platform", ["workspaceId", "platform"]),
 
+  postMetrics: defineTable({
+    postId: v.id("posts"),
+    workspaceId: v.id("workspaces"),
+    platform: PLATFORM,
+    likes: v.optional(v.number()),
+    comments: v.optional(v.number()),
+    shares: v.optional(v.number()),
+    views: v.optional(v.number()),
+    fetchedAt: v.number(),
+  })
+    .index("by_postId", ["postId"])
+    .index("by_workspaceId", ["workspaceId"]),
+
   engagementWaves: defineTable({
     campaignId: v.id("campaigns"),
     workspaceId: v.id("workspaces"),

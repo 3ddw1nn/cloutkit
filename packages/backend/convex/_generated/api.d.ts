@@ -27,6 +27,8 @@ import type * as onboarding from "../onboarding.js";
 import type * as platformGoals from "../platformGoals.js";
 import type * as postActions from "../postActions.js";
 import type * as postMediaActions from "../postMediaActions.js";
+import type * as postMetrics from "../postMetrics.js";
+import type * as postMetricsActions from "../postMetricsActions.js";
 import type * as postPublishActions from "../postPublishActions.js";
 import type * as posts from "../posts.js";
 import type * as socialConnectionActions from "../socialConnectionActions.js";
@@ -60,6 +62,8 @@ declare const fullApi: ApiFromModules<{
   platformGoals: typeof platformGoals;
   postActions: typeof postActions;
   postMediaActions: typeof postMediaActions;
+  postMetrics: typeof postMetrics;
+  postMetricsActions: typeof postMetricsActions;
   postPublishActions: typeof postPublishActions;
   posts: typeof posts;
   socialConnectionActions: typeof socialConnectionActions;

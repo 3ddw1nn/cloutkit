@@ -100,6 +100,18 @@ export function DashboardContent() {
             </Link>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Analytics</CardTitle>
+            <CardDescription>Real post performance</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            See likes, comments, shares, and views for your published posts.{" "}
+            <Link href="/analytics" className="underline">
+              View analytics
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
