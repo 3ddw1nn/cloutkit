@@ -27,14 +27,18 @@ function statusVariant(status: string): "default" | "destructive" | "secondary" 
 export function SocialAccountsContent() {
   const connections = useQuery(api.socialConnections.listConnections);
   const connectX = useAction(api.socialConnectionActions.connectXAccount);
+  const connectFacebook = useAction(api.socialConnectionActions.connectFacebookAccount);
   const testConnection = useAction(api.socialConnectionActions.testConnection);
+  const testFacebookConnection = useAction(api.socialConnectionActions.testFacebookConnection);
   const deleteConnection = useMutation(api.socialConnections.deleteConnection);
 
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [accessTokenSecret, setAccessTokenSecret] = useState("");
+  const [facebookToken, setFacebookToken] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingFacebook, setSavingFacebook] = useState(false);
   const [testingId, setTestingId] = useState<Id<"socialConnections"> | null>(null);
 
   async function handleConnectX(event: FormEvent<HTMLFormElement>) {
@@ -65,10 +69,32 @@ export function SocialAccountsContent() {
     }
   }
 
-  async function handleTest(id: Id<"socialConnections">) {
+  async function handleConnectFacebook(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!facebookToken.trim()) {
+      toast.error("Access token is required");
+      return;
+    }
+
+    setSavingFacebook(true);
+    try {
+      await connectFacebook({ accessToken: facebookToken.trim() });
+      setFacebookToken("");
+      toast.success("Facebook account connected");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not connect account";
+      toast.error(message);
+    } finally {
+      setSavingFacebook(false);
+    }
+  }
+
+  async function handleTest(id: Id<"socialConnections">, platform: string) {
     setTestingId(id);
     try {
-      const result = await testConnection({ connectionId: id });
+      const testFn =
+        platform === "FACEBOOK" ? testFacebookConnection : testConnection;
+      const result = await testFn({ connectionId: id });
       toast[result.success ? "success" : "error"](
         result.success ? "Connection is valid" : "Connection failed validation",
       );
@@ -156,6 +182,34 @@ export function SocialAccountsContent() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Connect Facebook</CardTitle>
+          <CardDescription>
+            Generate an access token via Graph API Explorer with your own app.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="flex flex-col gap-4" onSubmit={handleConnectFacebook}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="facebookToken">Access Token</Label>
+              <Input
+                id="facebookToken"
+                type="password"
+                value={facebookToken}
+                onChange={(e) => setFacebookToken(e.target.value)}
+                placeholder="From Graph API Explorer"
+                autoComplete="off"
+              />
+            </div>
+            <Button type="submit" disabled={savingFacebook || !facebookToken.trim()}>
+              {savingFacebook && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {savingFacebook ? "Connecting…" : "Connect account"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Your accounts</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -176,7 +230,7 @@ export function SocialAccountsContent() {
                   <Badge variant={statusVariant(conn.status)}>{conn.status}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  @{conn.accountHandle}
+                  {conn.platform === "X" ? "@" : ""}{conn.accountHandle}
                   {conn.lastTestedAt
                     ? ` · tested ${new Date(conn.lastTestedAt).toLocaleString()}`
                     : " · never tested"}
@@ -187,7 +241,7 @@ export function SocialAccountsContent() {
                   size="sm"
                   variant="outline"
                   disabled={testingId === conn._id}
-                  onClick={() => handleTest(conn._id)}
+                  onClick={() => handleTest(conn._id, conn.platform)}
                 >
                   {testingId === conn._id ? "Testing…" : "Test"}
                 </Button>

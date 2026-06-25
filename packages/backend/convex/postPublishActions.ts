@@ -54,7 +54,65 @@ export const publishCampaignSequence = action({
       }
 
       // Check if this post's platform has a real connection
-      if (post.platform === "X") {
+      if (post.platform === "FACEBOOK") {
+        const facebookConnection = await ctx.runQuery(
+          internal.socialConnections.getActiveConnectionForPlatform,
+          {
+            workspaceId: ids.workspaceId,
+            platform: "FACEBOOK",
+          },
+        );
+
+        if (facebookConnection !== null) {
+          try {
+            const credentialsJson = await decryptSecret(facebookConnection.encryptedCredentials);
+            const credentials = JSON.parse(credentialsJson) as { accessToken: string };
+
+            const fbResponse = await fetch(
+              "https://graph.facebook.com/v19.0/me/feed?access_token=" +
+                encodeURIComponent(credentials.accessToken),
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: "message=" + encodeURIComponent(post.content),
+              },
+            );
+
+            if (!fbResponse.ok) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            const fbData = (await fbResponse.json()) as { id?: string };
+            const postId = fbData.id;
+
+            if (!postId) {
+              publishResults.push({
+                postId: post._id,
+                success: false,
+              });
+              continue;
+            }
+
+            publishResults.push({
+              postId: post._id,
+              success: true,
+              publishedAt: now,
+              mockPlatformPostId: postId,
+              mockPublishedUrl: `https://www.facebook.com/${postId}`,
+              publishMethod: "REAL",
+            });
+            continue;
+          } catch {
+            // Fall through to mock publishing
+          }
+        }
+      } else if (post.platform === "X") {
         const xConnection = await ctx.runQuery(
           internal.socialConnections.getActiveConnectionForPlatform,
           {

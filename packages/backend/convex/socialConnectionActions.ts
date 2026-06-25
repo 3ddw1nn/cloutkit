@@ -125,3 +125,86 @@ export const testConnection = action({
     }
   },
 });
+
+export const connectFacebookAccount = action({
+  args: { accessToken: v.string() },
+  handler: async (ctx, { accessToken }) => {
+    const ids = await ctx.runQuery(internal.workspaces.getMyWorkspaceId, {});
+    if (ids === null) throw new Error("Not authenticated");
+
+    const response = await fetch(
+      "https://graph.facebook.com/v19.0/me?fields=id,name&access_token=" +
+        encodeURIComponent(accessToken),
+    );
+
+    if (!response.ok) {
+      throw new Error(`Facebook API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = (await response.json()) as { name?: string };
+    const accountName = data.name;
+    if (!accountName) {
+      throw new Error("Could not retrieve Facebook account name");
+    }
+
+    const credentialsJson = JSON.stringify({ accessToken });
+    const encrypted = await encryptSecret(credentialsJson);
+
+    await ctx.runMutation(internal.socialConnections.storeConnection, {
+      workspaceId: ids.workspaceId,
+      userId: ids.userId,
+      platform: "FACEBOOK",
+      encryptedCredentials: encrypted,
+      accountHandle: accountName,
+    });
+  },
+});
+
+export const testFacebookConnection = action({
+  args: { connectionId: v.id("socialConnections") },
+  handler: async (ctx, { connectionId }) => {
+    const ids = await ctx.runQuery(internal.workspaces.getMyWorkspaceId, {});
+    if (ids === null) throw new Error("Not authenticated");
+
+    const connection = await ctx.runQuery(
+      internal.socialConnections.getActiveConnectionForPlatform,
+      {
+        workspaceId: ids.workspaceId,
+        platform: "FACEBOOK",
+      },
+    );
+
+    if (connection === null) {
+      throw new Error("Connection not found");
+    }
+
+    const credentialsJson = await decryptSecret(connection.encryptedCredentials);
+    const credentials = JSON.parse(credentialsJson) as { accessToken: string };
+
+    try {
+      const response = await fetch(
+        "https://graph.facebook.com/v19.0/me?access_token=" +
+          encodeURIComponent(credentials.accessToken),
+      );
+
+      const success = response.ok;
+      await ctx.runMutation(internal.socialConnections.recordTestResult, {
+        connectionId,
+        workspaceId: ids.workspaceId,
+        userId: ids.userId,
+        success,
+      });
+
+      return { success };
+    } catch {
+      await ctx.runMutation(internal.socialConnections.recordTestResult, {
+        connectionId,
+        workspaceId: ids.workspaceId,
+        userId: ids.userId,
+        success: false,
+      });
+
+      return { success: false };
+    }
+  },
+});
