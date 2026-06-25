@@ -10,6 +10,6 @@ export const getCurrentUser = query({
     const user = await ctx.db.get("users", userId);
     if (user === null) return null;
 
-    return { onboardingCompleted: user.onboardingCompleted ?? false };
+    return { onboardingCompleted: user.onboardingCompleted ?? false, email: user.email };
   },
 });

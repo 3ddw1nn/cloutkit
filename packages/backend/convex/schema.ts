@@ -299,4 +299,11 @@ export default defineSchema({
     followsPerDay: v.number(),
     repliesPerDay: v.number(),
   }).index("by_workspaceId", ["workspaceId"]),
+
+  contactMessages: defineTable({
+    name: v.string(),
+    email: v.string(),
+    message: v.string(),
+    submittedAt: v.number(),
+  }),
 });
