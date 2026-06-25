@@ -9,6 +9,10 @@ export default function Home() {
         AI-generated social media campaign sequences, reviewed and approved
         step by step.
       </p>
+      <p className="max-w-md text-sm text-muted-foreground">
+        Free to use — bring your own OpenAI API key and you only ever pay
+        OpenAI directly for what you generate.
+      </p>
       <div className="flex gap-3">
         <Link href="/signup" className={buttonVariants()}>
           Sign up
