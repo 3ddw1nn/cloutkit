@@ -212,3 +212,61 @@ export const saveRegeneratedPost = internalMutation({
     });
   },
 });
+
+const MOCK_URL_TEMPLATES: Record<string, string> = {
+  INSTAGRAM: "https://instagram.com/p/{id}",
+  FACEBOOK: "https://facebook.com/posts/{id}",
+  X: "https://x.com/i/status/{id}",
+  YOUTUBE: "https://youtube.com/watch?v={id}",
+};
+
+export const publishCampaignSequence = mutation({
+  args: { campaignId: v.id("campaigns") },
+  handler: async (ctx, { campaignId }) => {
+    const ids = await getWorkspaceIdForCurrentUser(ctx);
+    if (ids === null) throw new Error("Not authenticated");
+
+    const campaign = await ctx.db.get("campaigns", campaignId);
+    if (campaign === null || campaign.workspaceId !== ids.workspaceId) {
+      throw new Error("Campaign not found");
+    }
+
+    if (campaign.status !== "READY_TO_PUBLISH") {
+      throw new Error(
+        `Campaign must be READY_TO_PUBLISH to publish (current: ${campaign.status})`,
+      );
+    }
+
+    // Get all posts for this campaign
+    const posts = await ctx.db
+      .query("posts")
+      .withIndex("by_campaignId", (q) => q.eq("campaignId", campaignId))
+      .collect();
+
+    // Publish each post
+    const now = Date.now();
+    for (const post of posts) {
+      const mockPostId = post._id;
+      const template = MOCK_URL_TEMPLATES[post.platform] || MOCK_URL_TEMPLATES.X;
+      const mockUrl = template.replace("{id}", mockPostId);
+
+      await ctx.db.patch("posts", post._id, {
+        publishedAt: now,
+        mockPlatformPostId: mockPostId,
+        mockPublishedUrl: mockUrl,
+      });
+    }
+
+    // Update campaign status
+    await ctx.db.patch("campaigns", campaignId, { status: "PUBLISHED" });
+
+    // Log the action
+    await logAudit(ctx, {
+      workspaceId: ids.workspaceId,
+      userId: ids.userId,
+      action: "CAMPAIGN_PUBLISHED",
+      entityType: "campaigns",
+      entityId: campaignId,
+    });
+  },
+});

@@ -207,6 +207,9 @@ export default defineSchema({
     mediaDescription: v.optional(v.string()),
     status: v.union(v.literal("DRAFT"), v.literal("APPROVED"), v.literal("REJECTED")),
     rawAiOutput: v.string(),
+    publishedAt: v.optional(v.number()),
+    mockPlatformPostId: v.optional(v.string()),
+    mockPublishedUrl: v.optional(v.string()),
   })
     .index("by_campaignId", ["campaignId"])
     .index("by_workspaceId", ["workspaceId"]),

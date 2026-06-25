@@ -16,6 +16,8 @@ interface SequenceReviewProps {
 export function SequenceReview({ campaignId }: SequenceReviewProps) {
   const campaign = useQuery(api.campaigns.getCampaignById, { campaignId });
   const posts = useQuery(api.posts.getPostsForCampaign, { campaignId });
+  const publishCampaign = useMutation(api.posts.publishCampaignSequence);
+  const [publishing, setPublishing] = useState(false);
 
   if (!campaign || !posts) {
     return <div className="text-center text-gray-500">Loading...</div>;
@@ -27,6 +29,19 @@ export function SequenceReview({ campaignId }: SequenceReviewProps) {
 
   const allApproved =
     posts.length > 0 && posts.every((p) => p.status === "APPROVED");
+  const isPublished = campaign.campaign.status === "PUBLISHED";
+
+  const handlePublish = async () => {
+    setPublishing(true);
+    try {
+      await publishCampaign({ campaignId });
+      toast.success("Campaign published!");
+    } catch {
+      toast.error("Failed to publish campaign");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-2xl space-y-6">
@@ -37,11 +52,23 @@ export function SequenceReview({ campaignId }: SequenceReviewProps) {
         </p>
       </div>
 
-      {allApproved && (
-        <div className="rounded-lg bg-green-50 p-4 border border-green-200">
-          <p className="text-sm font-medium text-green-900">
-            ✓ All posts approved! This campaign is ready to publish.
+      {isPublished && (
+        <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
+          <p className="text-sm font-medium text-blue-900">
+            ✓ Campaign published! All posts are now live.
           </p>
+        </div>
+      )}
+
+      {allApproved && !isPublished && (
+        <div className="rounded-lg bg-green-50 p-4 border border-green-200 flex items-center justify-between">
+          <p className="text-sm font-medium text-green-900">
+            ✓ All posts approved! Ready to publish.
+          </p>
+          <Button onClick={handlePublish} disabled={publishing} size="sm">
+            {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {publishing ? "Publishing…" : "Publish campaign"}
+          </Button>
         </div>
       )}
 
@@ -56,6 +83,7 @@ export function SequenceReview({ campaignId }: SequenceReviewProps) {
                 key={post._id}
                 post={post}
                 campaignId={campaignId}
+                isPublished={isPublished}
               />
             ))}
           </div>
@@ -67,9 +95,11 @@ export function SequenceReview({ campaignId }: SequenceReviewProps) {
 
 interface PostCardProps {
   post: Doc<"posts">;
+  campaignId: Id<"campaigns">;
+  isPublished: boolean;
 }
 
-function PostCard({ post }: PostCardProps) {
+function PostCard({ post, isPublished }: PostCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(post.content);
   const [editedMediaDesc, setEditedMediaDesc] = useState(post.mediaDescription || "");
@@ -219,46 +249,62 @@ function PostCard({ post }: PostCardProps) {
               </p>
             </div>
           )}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsEditing(true)}
-              disabled={isLoading || post.status === "APPROVED"}
-            >
-              Edit
-            </Button>
-            {post.status === "DRAFT" && (
-              <>
-                <Button
-                  size="sm"
-                  onClick={handleApprove}
-                  disabled={isLoading}
-                >
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={handleReject}
-                  disabled={isLoading}
-                >
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Reject
-                </Button>
-              </>
-            )}
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleRegenerate}
-              disabled={isLoading}
-            >
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Regenerate
-            </Button>
-          </div>
+          {isPublished && post.mockPublishedUrl && (
+            <div className="mb-3 rounded bg-white/50 p-2">
+              <p className="text-xs text-gray-600">
+                <span className="font-semibold">Published URL (mock):</span>{" "}
+                {post.mockPublishedUrl}
+              </p>
+              {post.publishedAt && (
+                <p className="text-xs text-gray-600 mt-1">
+                  <span className="font-semibold">Published:</span>{" "}
+                  {new Date(post.publishedAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
+          {!isPublished && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsEditing(true)}
+                disabled={isLoading || post.status === "APPROVED"}
+              >
+                Edit
+              </Button>
+              {post.status === "DRAFT" && (
+                <>
+                  <Button
+                    size="sm"
+                    onClick={handleApprove}
+                    disabled={isLoading}
+                  >
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleReject}
+                    disabled={isLoading}
+                  >
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Reject
+                  </Button>
+                </>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleRegenerate}
+                disabled={isLoading}
+              >
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Regenerate
+              </Button>
+            </div>
+          )}
         </>
       )}
     </div>
